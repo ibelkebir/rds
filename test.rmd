@@ -1,0 +1,152 @@
+```{r}
+library(RDS)
+library(shiny)
+library(shinythemes)
+library(DT)
+library(igraph)
+```
+
+```{r}
+data(faux)
+data("fauxmadrona")
+data("fauxsycamore")
+faux
+fauxmadrona
+fauxsycamore
+```
+```{r}
+get.population.size(faux)
+get.population.size(fauxmadrona)
+get.population.size(fauxsycamore)
+```
+
+```{r}
+ui <- navbarPage("Nav",
+  tabPanel("datasets", 
+    fluidPage(
+      theme = shinytheme("cosmo"),
+      sidebarLayout(
+        sidebarPanel(
+          radioButtons("dataset", "Datasets", c("Faux"="f", "Fauxmadrona"="fm", "Fauxsycamore"="fc"))
+        ),
+        mainPanel(
+          h3(textOutput("text"))
+        )
+      )
+    )
+  ),
+  tabPanel("summary", 
+    fluidPage(
+      theme = shinytheme("cosmo"),
+      sidebarLayout(
+        sidebarPanel(
+          actionButton("cp", "Convergence Plot"),
+          br(),
+          actionButton("bp", "Bottleneck Plot"),
+          br(),
+          actionButton("c", "Clear")
+        ),
+        mainPanel(
+          h3("RDS I Estimate"),
+          DT::dataTableOutput("rds1"),
+          br(),
+          h3("RDS II Estimate"),
+          DT::dataTableOutput("rds2"),
+          br(),
+          h3("SS Estimate"),
+          DT::dataTableOutput("ss"),
+          br(),
+          plotOutput("plot")
+        )
+      )
+    )
+  )
+)
+
+server <- function(input, output, session) {
+  
+  output$text <- renderText({
+    switch(
+        input$dataset,
+        "f" = "sample size=389, population size=500",
+        "fm" = "sample size=500, population size=1000, no seed dependency present",
+        "fc" = "sample size=500, population size=715, seed dependency present"
+        )
+  })
+  
+  output$rds1 <- DT::renderDataTable({
+    switch(
+        input$dataset,
+        "f" = RDS.I.estimates(rds.data=faux, outcome.variable="X")$interval,
+        "fm" = RDS.I.estimates(rds.data=fauxmadrona, outcome.variable="disease")$interval,
+        "fc" = RDS.I.estimates(rds.data=fauxsycamore, outcome.variable="disease")$interval
+        )
+  })
+
+  output$rds2 <- DT::renderDataTable({
+    switch(
+        input$dataset,
+        "f" = RDS.II.estimates(rds.data=faux, outcome.variable="X")$interval,
+        "fm" = RDS.II.estimates(rds.data=fauxmadrona, outcome.variable="disease")$interval,
+        "fc" = RDS.II.estimates(rds.data=fauxsycamore, outcome.variable="disease")$interval
+        )
+  })
+
+  output$ss <- DT::renderDataTable({
+    switch(
+        input$dataset,
+        "f" = RDS.SS.estimates(rds.data=faux, outcome.variable="X")$interval,
+        "fm" = RDS.SS.estimates(rds.data=fauxmadrona, outcome.variable="disease")$interval,
+        "fc" = RDS.SS.estimates(rds.data=fauxsycamore, outcome.variable="disease")$interval
+        )
+  })
+  
+  v <- reactiveValues(data = NULL)
+  
+  observeEvent(input$cp, {
+    v$data <- "cp"
+  })
+  
+  observeEvent(input$bp, {
+    v$data <- "bp"
+  })
+  
+  observeEvent(input$c, {
+    v$data <- NULL
+  })
+  
+  output$plot <- renderPlot({
+    if (is.null(v$data)) return()
+    
+    if (v$data == "cp") {
+      switch(
+        input$dataset,
+        "f" = convergence.plot(faux, c("X")),
+        "fm" = convergence.plot(fauxmadrona, c("disease")),
+        "fc" = convergence.plot(fauxsycamore, c("disease"))
+      )
+    }
+    
+    if (v$data == "bp") {
+      switch(
+        input$dataset,
+        "f" = bottleneck.plot(faux, c("X")),
+        "fm" = bottleneck.plot(fauxmadrona, c("disease")),
+        "fc" = bottleneck.plot(fauxsycamore, c("disease"))
+      )
+    }
+  })
+}
+
+shinyApp(ui, server)
+```
+
+```{r}
+relations <- data.frame(from=faux$id[-1], to=faux$recruiter.id[-1])
+g <- graph_from_data_frame(relations, directed=FALSE, vertices=data.frame(faux$id))
+plot(g, vertex.color="red", vertex.label=NA, vertex.size=5, layout=layout_as_tree)
+```
+
+```{r}
+fauxmadrona.network
+```
