@@ -4,6 +4,8 @@ library(shiny)
 library(shinythemes)
 library(DT)
 library(igraph)
+library(dplyr)
+library(markovchain)
 ```
 
 ```{r}
@@ -15,48 +17,90 @@ fauxmadrona
 fauxsycamore
 ```
 ```{r}
-get.population.size(faux)
-get.population.size(fauxmadrona)
-get.population.size(fauxsycamore)
+write.csv(data.frame(id=c(1,2,3,4,5), recruiter.id=))
 ```
 
 ```{r}
-ui <- navbarPage("Nav",
-  tabPanel("datasets", 
-    fluidPage(
-      theme = shinytheme("cosmo"),
-      sidebarLayout(
-        sidebarPanel(
-          radioButtons("dataset", "Datasets", c("Faux"="f", "Fauxmadrona"="fm", "Fauxsycamore"="fc"))
+ui <- bootstrapPage(
+  tags$head(
+    tags$title("RDS"),
+    tags$meta(charset="utf-8"),
+    tags$link(rel="stylesheet", type="text/css", href="https://bootswatch.com/3/yeti/bootstrap.min.css")
+  ),
+  
+  navbarPage(title=HTML('<a href="./">RDS</a>'), 
+    tabPanel("datasets",
+      fluidPage(
+        titlePanel(
+          h2("Select a dataset", align="center")
         ),
-        mainPanel(
-          h3(textOutput("text"))
+        sidebarLayout(
+          sidebarPanel(
+            radioButtons("dataset", "Datasets", c("Faux"="f", "Fauxmadrona"="fm", "Fauxsycamore"="fc", "Custom"="cust"))
+          ),
+          mainPanel(
+            h3(textOutput("text")),
+            br(),
+            fileInput("file1", "Upload a CSV File", accept=".csv"),
+            checkboxInput("header", "File contains header", TRUE),
+            br(),
+            DT::dataTableOutput("fileread")
+          )
         )
       )
-    )
-  ),
-  tabPanel("summary", 
-    fluidPage(
-      theme = shinytheme("cosmo"),
-      sidebarLayout(
-        sidebarPanel(
-          actionButton("cp", "Convergence Plot"),
-          br(),
-          actionButton("bp", "Bottleneck Plot"),
-          br(),
-          actionButton("c", "Clear")
-        ),
-        mainPanel(
-          h3("RDS I Estimate"),
-          DT::dataTableOutput("rds1"),
-          br(),
-          h3("RDS II Estimate"),
-          DT::dataTableOutput("rds2"),
-          br(),
-          h3("SS Estimate"),
-          DT::dataTableOutput("ss"),
-          br(),
-          plotOutput("plot")
+    ),
+    tabPanel("summary",
+      fluidPage(
+        sidebarLayout(
+          sidebarPanel(
+            textInput("resp", label="Select a response variable (For custom datasets)"),
+            actionButton("submit", "Submit"),
+            br(),
+            textOutput("text2"),
+            numericInput("estN", "Select estimated population size (For custom datasets)", 10, min=1),
+            actionButton("submit2", "Submit"),
+            br(),
+            textOutput("text3"),
+            br(),
+            actionButton("cp", "Convergence Plot"),
+            br(),
+            actionButton("bp", "Bottleneck Plot"),
+            br(),
+            actionButton("c", "Clear"),
+          ),
+          mainPanel(
+            textOutput("error"),
+            h3("RDS I Estimate"),
+            DT::dataTableOutput("rds1"),
+            br(),
+            h3("RDS II Estimate"),
+            DT::dataTableOutput("rds2"),
+            br(),
+            h3("SS Estimate"),
+            DT::dataTableOutput("ss"),
+            br(),
+            plotOutput("plot")
+          )
+        )
+      )
+    ),
+    tabPanel("Visualizations",
+      fluidPage(
+        sidebarLayout(
+          sidebarPanel(
+            textInput("groupvar", label="Select a variable for markov chain"),
+            actionButton("submit3", "Submit"),
+            br(),
+            textOutput("text4"),
+            actionButton("rt", "Recruitment Tree"),
+            br(),
+            actionButton("mc", "Markov Chain"),
+            br()
+          ),
+          mainPanel(
+            textOutput("error2"),
+            plotOutput("visual")
+          )
         )
       )
     )
@@ -65,40 +109,88 @@ ui <- navbarPage("Nav",
 
 server <- function(input, output, session) {
   
-  output$text <- renderText({
-    switch(
-        input$dataset,
-        "f" = "sample size=389, population size=500",
-        "fm" = "sample size=500, population size=1000, no seed dependency present",
-        "fc" = "sample size=500, population size=715, seed dependency present"
-        )
+  dataset <- reactiveValues(data=NULL)
+  response <- reactiveValues(data=NULL)
+  group_var <- reactiveValues(data=NULL)
+  
+  trySummary <- function(){
+    if (is.null(readfile$data)) output$error <- {
+      renderText("No file uploaded")
+      return()
+    }
+    if (is.null(response$data)) {
+      output$error <- renderText("No response variable selected")
+      return()
+    }
+    output$rds1 <- DT::renderDataTable({RDS.I.estimates(rds.data=readfile$data, 
+                                                        outcome.variable=response$data)$interval})
+    output$rds2 <- DT::renderDataTable({RDS.II.estimates(rds.data=readfile$data, 
+                                                         outcome.variable=response$data)$interval})
+    output$ss <- DT::renderDataTable({RDS.SS.estimates(rds.data=readfile$data, 
+                                                       outcome.variable=response$data, N=N$data)$interval})
+    output$error <- NULL
+  }
+  
+  infile <- reactiveValues(data=NULL)
+  readfile <- reactiveValues(data=NULL)
+  output$fileread <- renderTable({
+    infile$data <- input$file1
+    if (is.null(infile$data)) return()
+    readfile$data <- read.csv(infile$data$datapath, header=input$header)
+    output$fileread <- DT::renderDataTable({
+      head(readfile$data)
+    })
+    dataset <- 
+    trySummary()
   })
   
-  output$rds1 <- DT::renderDataTable({
-    switch(
-        input$dataset,
-        "f" = RDS.I.estimates(rds.data=faux, outcome.variable="X")$interval,
-        "fm" = RDS.I.estimates(rds.data=fauxmadrona, outcome.variable="disease")$interval,
-        "fc" = RDS.I.estimates(rds.data=fauxsycamore, outcome.variable="disease")$interval
-        )
+  response <- reactiveValues(data=NULL)
+  observeEvent(input$submit, {
+    response$data <- input$resp
+    output$text2 <- renderText(paste("Chosen response variable: ", response$data))
+    trySummary()
   })
-
-  output$rds2 <- DT::renderDataTable({
-    switch(
-        input$dataset,
-        "f" = RDS.II.estimates(rds.data=faux, outcome.variable="X")$interval,
-        "fm" = RDS.II.estimates(rds.data=fauxmadrona, outcome.variable="disease")$interval,
-        "fc" = RDS.II.estimates(rds.data=fauxsycamore, outcome.variable="disease")$interval
-        )
-  })
-
-  output$ss <- DT::renderDataTable({
-    switch(
-        input$dataset,
-        "f" = RDS.SS.estimates(rds.data=faux, outcome.variable="X")$interval,
-        "fm" = RDS.SS.estimates(rds.data=fauxmadrona, outcome.variable="disease")$interval,
-        "fc" = RDS.SS.estimates(rds.data=fauxsycamore, outcome.variable="disease")$interval
-        )
+  
+  N <- reactiveValues(data=NULL)
+  observeEvent(input$submit2, {
+    N$data <- input$estN
+    output$text3 <- renderText(paste("Chosen N: ", N$data))
+    trySummary()
+  }) 
+  
+  observeEvent(input$dataset, {
+    f <- switch(
+      input$dataset,
+      "f" = function() {
+        output$error <- NULL
+        output$text <- renderText({"sample size=389, population size=500"})
+        output$rds1 <- DT::renderDataTable({RDS.I.estimates(rds.data=faux, outcome.variable="X")$interva})
+        output$rds2 <- DT::renderDataTable({RDS.II.estimates(rds.data=faux, outcome.variable="X")$interva})
+        output$ss <- DT::renderDataTable({RDS.SS.estimates(rds.data=faux, outcome.variable="X")$interva})
+      },
+      "fm" = function() {
+        output$error <- NULL
+        output$text <- renderText({"sample size=500, population size=1000, no seed dependency present"})
+        output$rds1 <- DT::renderDataTable({RDS.I.estimates(rds.data=fauxmadrona, outcome.variable="disease")$interva})
+        output$rds2 <- DT::renderDataTable({RDS.II.estimates(rds.data=fauxmadrona, outcome.variable="disease")$interva})
+        output$ss <- DT::renderDataTable({RDS.SS.estimates(rds.data=fauxmadrona, outcome.variable="disease")$interva})
+      },
+      "fc" = function() {
+        output$error <- NULL
+        output$text <- renderText({"sample size=500, population size=715, seed dependency present"})
+        output$rds1 <- DT::renderDataTable({RDS.I.estimates(rds.data=fauxsycamore, outcome.variable="disease")$interva})
+        output$rds2 <- DT::renderDataTable({RDS.II.estimates(rds.data=fauxsycamore, outcome.variable="disease")$interva})
+        output$ss <- DT::renderDataTable({RDS.SS.estimates(rds.data=fauxsycamore, outcome.variable="disease")$interva})
+      },
+      "cust" = function() {
+        output$text <- renderText({ifelse(is.null(infile$data), "No file uploaded", paste("sample size=", nrow(readfile$data)))})
+        output$rds1 <- NULL
+        output$rds2 <- NULL
+        output$ss <- NULL
+        trySummary()
+      }
+    )
+    f()
   })
   
   v <- reactiveValues(data = NULL)
@@ -123,7 +215,8 @@ server <- function(input, output, session) {
         input$dataset,
         "f" = convergence.plot(faux, c("X")),
         "fm" = convergence.plot(fauxmadrona, c("disease")),
-        "fc" = convergence.plot(fauxsycamore, c("disease"))
+        "fc" = convergence.plot(fauxsycamore, c("disease")),
+        "cust" = convergence.plot(as.rds.data.frame(readfile$data), c(response$data))
       )
     }
     
@@ -132,9 +225,65 @@ server <- function(input, output, session) {
         input$dataset,
         "f" = bottleneck.plot(faux, c("X")),
         "fm" = bottleneck.plot(fauxmadrona, c("disease")),
-        "fc" = bottleneck.plot(fauxsycamore, c("disease"))
+        "fc" = bottleneck.plot(fauxsycamore, c("disease")),
+        "cust" = bottleneck.plot(as.rds.data.frame(readfile$data), c(response$data))
       )
     }
+  })
+  
+  observeEvent(input$rt, {
+    f <- switch(
+      input$dataset,
+      "f" = function() {
+        relations <- data.frame(from=faux[faux$recruiter.id != "seed",]$id, to=faux[faux$recruiter.id != "seed",]$recruiter.id)
+        g <- graph_from_data_frame(relations, directed=FALSE, vertices=data.frame(faux$id))
+        output$visual <- renderPlot(plot(g, vertex.color="red", vertex.label=NA, vertex.size=5, layout=layout_as_tree))
+      },
+      "fm" = function() {
+        relations <- data.frame(from=fauxmadrona[fauxmadrona$recruiter.id != "seed",]$id, 
+                                to=fauxmadrona[fauxmadrona$recruiter.id != "seed",]$recruiter.id)
+        g <- graph_from_data_frame(relations, directed=FALSE, vertices=data.frame(fauxmadrona$id))
+        output$visual <- renderPlot(plot(g, vertex.color="red", vertex.label=NA, vertex.size=5, layout=layout_as_tree))
+      },
+      "fc" = function() {
+        relations <- data.frame(from=fauxsycamore[fauxsycamore$recruiter.id != "seed",]$id, 
+                                to=fauxsycamore[fauxsycamore$recruiter.id != "seed",]$recruiter.id)
+        g <- graph_from_data_frame(relations, directed=FALSE, vertices=data.frame(fauxsycamore$id))
+        output$visual <- renderPlot(plot(g, vertex.color="red", vertex.label=NA, vertex.size=5, layout=layout_as_tree))
+      },
+      "cust" = function() {
+        relations <- data.frame(from=readfile$data[readfile$data$recruiter.id != -1,]$id, 
+                                to=readfile$data[readfile$data$recruiter.id != -1,]$recruiter.id)
+        g <- graph_from_data_frame(relations, directed=FALSE, vertices=data.frame(readfile$data$id))
+        output$visual <- renderPlot(plot(g, vertex.color="red", vertex.label=NA, vertex.size=5, layout=layout_as_tree))
+      }
+    )
+    f()
+  })
+  
+  group_var <- reactiveValues(data=NULL)
+  observeEvent(input$submit3, {
+    group_var$data = input$groups
+    output$text3 <- renderText(paste("Grouping variable: ", group_var$data))
+  })
+  
+  observeEvent(input$mc, {
+    if (is.null(group_var$data)) {
+      output$error2 <- renderText("No grouping variable chosen")
+      return()
+    }
+    
+    groups <- unique()
+    probs <- matrix(, length(groups), length(groups))
+    for (i in 1:length(groups)) {
+      for (j in 1:length(groups)) {
+        recruits <- nrow(faux[faux$X == groups[i],] %>% filter(recruiter.id %in% (faux[faux$X == groups[j],]$id)))
+        total <- nrow(faux %>% filter(recruiter.id %in% (faux[faux$X == groups[j],]$id)))
+        probs[i,j] = recruits/total
+      }
+    }
+    mc <- new("markovchain",states = sapply(groups, as.character),byrow = F,transitionMatrix = probs,name = "Recruitment Movement")
+    plot(mc, vertex.cex=3)
   })
 }
 
@@ -142,11 +291,31 @@ shinyApp(ui, server)
 ```
 
 ```{r}
-relations <- data.frame(from=faux$id[-1], to=faux$recruiter.id[-1])
-g <- graph_from_data_frame(relations, directed=FALSE, vertices=data.frame(faux$id))
-plot(g, vertex.color="red", vertex.label=NA, vertex.size=5, layout=layout_as_tree)
+faux[,'X']
 ```
 
 ```{r}
-fauxmadrona.network
+faux
+```
+
+```{r}
+groups <- unique(faux$X)
+probs <- matrix(, length(groups), length(groups))
+for (i in 1:length(groups)) {
+  for (j in 1:length(groups)) {
+    recruits <- nrow(faux[faux$X == groups[i],] %>% filter(recruiter.id %in% (faux[faux$X == groups[j],]$id)))
+    total <- nrow(faux %>% filter(recruiter.id %in% (faux[faux$X == groups[j],]$id)))
+    probs[i,j] = recruits/total
+  }
+}
+mc <- new("markovchain",states = sapply(groups, as.character),byrow = F,transitionMatrix = probs,name = "Recruitment Movement")
+plot(mc, vertex.cex=3)
+```
+
+```{r}
+faux
+faux[faux$X == "red",] %>% filter(recruiter.id %in% (faux[faux$X == "red",]$id))
+faux[faux$X == "red",] %>% filter(recruiter.id %in% (faux[faux$X == "blue",]$id))
+faux[faux$X == "blue",] %>% filter(recruiter.id %in% (faux[faux$X == "red",]$id))
+faux[faux$X == "blue",] %>% filter(recruiter.id %in% (faux[faux$X == "blue",]$id))
 ```
