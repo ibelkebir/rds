@@ -16,8 +16,13 @@ faux
 fauxmadrona
 fauxsycamore
 ```
+
 ```{r}
-write.csv(data.frame(id=c(1,2,3,4,5), recruiter.id=))
+write.csv(data.frame(id=c(1,2,3,4,5,6,7,8,9,10), 
+                     recruiter.id=c(2,-1,2,-1,4,8,1,5,6,7), network.size.variable=c(4,8,8,2,3,4,8,6,4,5), 
+                     age=c("<20","<20","<20","20-40","<20","20-40","40-60","60+","20-40","60+"),
+                     disease=c(1,0,0,1,1,0,1,1,0,1)), 
+          './data.csv', row.names = FALSE)
 ```
 
 ```{r}
@@ -109,10 +114,6 @@ ui <- bootstrapPage(
 
 server <- function(input, output, session) {
   
-  dataset <- reactiveValues(data=NULL)
-  response <- reactiveValues(data=NULL)
-  group_var <- reactiveValues(data=NULL)
-  
   trySummary <- function(){
     if (is.null(readfile$data)) output$error <- {
       renderText("No file uploaded")
@@ -122,11 +123,11 @@ server <- function(input, output, session) {
       output$error <- renderText("No response variable selected")
       return()
     }
-    output$rds1 <- DT::renderDataTable({RDS.I.estimates(rds.data=readfile$data, 
+    output$rds1 <- DT::renderDataTable({RDS.I.estimates(rds.data=as.rds.data.frame(readfile$data), 
                                                         outcome.variable=response$data)$interval})
-    output$rds2 <- DT::renderDataTable({RDS.II.estimates(rds.data=readfile$data, 
+    output$rds2 <- DT::renderDataTable({RDS.II.estimates(rds.data=as.rds.data.frame(readfile$data), 
                                                          outcome.variable=response$data)$interval})
-    output$ss <- DT::renderDataTable({RDS.SS.estimates(rds.data=readfile$data, 
+    output$ss <- DT::renderDataTable({RDS.SS.estimates(rds.data=as.rds.data.frame(readfile$data), 
                                                        outcome.variable=response$data, N=N$data)$interval})
     output$error <- NULL
   }
@@ -140,7 +141,6 @@ server <- function(input, output, session) {
     output$fileread <- DT::renderDataTable({
       head(readfile$data)
     })
-    dataset <- 
     trySummary()
   })
   
@@ -171,19 +171,26 @@ server <- function(input, output, session) {
       "fm" = function() {
         output$error <- NULL
         output$text <- renderText({"sample size=500, population size=1000, no seed dependency present"})
-        output$rds1 <- DT::renderDataTable({RDS.I.estimates(rds.data=fauxmadrona, outcome.variable="disease")$interva})
-        output$rds2 <- DT::renderDataTable({RDS.II.estimates(rds.data=fauxmadrona, outcome.variable="disease")$interva})
-        output$ss <- DT::renderDataTable({RDS.SS.estimates(rds.data=fauxmadrona, outcome.variable="disease")$interva})
+        output$rds1 <- DT::renderDataTable({RDS.I.estimates(rds.data=fauxmadrona, 
+                                                            outcome.variable="disease")$interva})
+        output$rds2 <- DT::renderDataTable({RDS.II.estimates(rds.data=fauxmadrona, 
+                                                             outcome.variable="disease")$interva})
+        output$ss <- DT::renderDataTable({RDS.SS.estimates(rds.data=fauxmadrona, 
+                                                           outcome.variable="disease")$interva})
       },
       "fc" = function() {
         output$error <- NULL
         output$text <- renderText({"sample size=500, population size=715, seed dependency present"})
-        output$rds1 <- DT::renderDataTable({RDS.I.estimates(rds.data=fauxsycamore, outcome.variable="disease")$interva})
-        output$rds2 <- DT::renderDataTable({RDS.II.estimates(rds.data=fauxsycamore, outcome.variable="disease")$interva})
-        output$ss <- DT::renderDataTable({RDS.SS.estimates(rds.data=fauxsycamore, outcome.variable="disease")$interva})
+        output$rds1 <- DT::renderDataTable({RDS.I.estimates(rds.data=fauxsycamore, 
+                                                            outcome.variable="disease")$interva})
+        output$rds2 <- DT::renderDataTable({RDS.II.estimates(rds.data=fauxsycamore, 
+                                                             outcome.variable="disease")$interva})
+        output$ss <- DT::renderDataTable({RDS.SS.estimates(rds.data=fauxsycamore, 
+                                                           outcome.variable="disease")$interva})
       },
       "cust" = function() {
-        output$text <- renderText({ifelse(is.null(infile$data), "No file uploaded", paste("sample size=", nrow(readfile$data)))})
+        output$text <- renderText({ifelse(is.null(infile$data), "No file uploaded", paste("sample size=", 
+                                                                                          nrow(readfile$data)))})
         output$rds1 <- NULL
         output$rds2 <- NULL
         output$ss <- NULL
@@ -235,27 +242,32 @@ server <- function(input, output, session) {
     f <- switch(
       input$dataset,
       "f" = function() {
-        relations <- data.frame(from=faux[faux$recruiter.id != "seed",]$id, to=faux[faux$recruiter.id != "seed",]$recruiter.id)
+        relations <- data.frame(from=faux[faux$recruiter.id != "seed",]$id,
+                                to=faux[faux$recruiter.id != "seed",]$recruiter.id)
         g <- graph_from_data_frame(relations, directed=FALSE, vertices=data.frame(faux$id))
-        output$visual <- renderPlot(plot(g, vertex.color="red", vertex.label=NA, vertex.size=5, layout=layout_as_tree))
+        output$visual <- renderPlot(plot(g, vertex.color="red", vertex.label=NA, vertex.size=5, 
+                                         layout=layout_as_tree))
       },
       "fm" = function() {
         relations <- data.frame(from=fauxmadrona[fauxmadrona$recruiter.id != "seed",]$id, 
                                 to=fauxmadrona[fauxmadrona$recruiter.id != "seed",]$recruiter.id)
         g <- graph_from_data_frame(relations, directed=FALSE, vertices=data.frame(fauxmadrona$id))
-        output$visual <- renderPlot(plot(g, vertex.color="red", vertex.label=NA, vertex.size=5, layout=layout_as_tree))
+        output$visual <- renderPlot(plot(g, vertex.color="red", vertex.label=NA, vertex.size=5, 
+                                         layout=layout_as_tree))
       },
       "fc" = function() {
         relations <- data.frame(from=fauxsycamore[fauxsycamore$recruiter.id != "seed",]$id, 
                                 to=fauxsycamore[fauxsycamore$recruiter.id != "seed",]$recruiter.id)
         g <- graph_from_data_frame(relations, directed=FALSE, vertices=data.frame(fauxsycamore$id))
-        output$visual <- renderPlot(plot(g, vertex.color="red", vertex.label=NA, vertex.size=5, layout=layout_as_tree))
+        output$visual <- renderPlot(plot(g, vertex.color="red", vertex.label=NA, vertex.size=5, 
+                                         layout=layout_as_tree))
       },
       "cust" = function() {
         relations <- data.frame(from=readfile$data[readfile$data$recruiter.id != -1,]$id, 
                                 to=readfile$data[readfile$data$recruiter.id != -1,]$recruiter.id)
         g <- graph_from_data_frame(relations, directed=FALSE, vertices=data.frame(readfile$data$id))
-        output$visual <- renderPlot(plot(g, vertex.color="red", vertex.label=NA, vertex.size=5, layout=layout_as_tree))
+        output$visual <- renderPlot(plot(g, vertex.color="red", vertex.label=NA, vertex.size=5, 
+                                         layout=layout_as_tree))
       }
     )
     f()
@@ -263,27 +275,47 @@ server <- function(input, output, session) {
   
   group_var <- reactiveValues(data=NULL)
   observeEvent(input$submit3, {
-    group_var$data = input$groups
-    output$text3 <- renderText(paste("Grouping variable: ", group_var$data))
+    group_var$data = input$groupvar
+    output$text4 <- renderText(paste("Grouping variable: ", group_var$data))
   })
   
   observeEvent(input$mc, {
-    if (is.null(group_var$data)) {
-      output$error2 <- renderText("No grouping variable chosen")
+    df <- switch(
+      input$dataset,
+      "f" = faux,
+      "fm" = fauxmadrona,
+      "fc" = fauxsycamore,
+      "cust" = readfile$data
+    )
+    g <- switch(
+      input$dataset,
+      "f" = 'X',
+      "fm" = 'disease',
+      "fc" = 'disease',
+      "cust" = as.character(group_var$data)
+    )
+    
+    if (input$dataset == "cust" && is.null(group_var$data)) {
+      output$error2 <- renderText("No grouping variable selected")
       return()
     }
     
-    groups <- unique()
+    output$error2 <- NULL
+    groups <- unique(df[,g])
     probs <- matrix(, length(groups), length(groups))
     for (i in 1:length(groups)) {
       for (j in 1:length(groups)) {
-        recruits <- nrow(faux[faux$X == groups[i],] %>% filter(recruiter.id %in% (faux[faux$X == groups[j],]$id)))
-        total <- nrow(faux %>% filter(recruiter.id %in% (faux[faux$X == groups[j],]$id)))
-        probs[i,j] = recruits/total
+        recruits <- nrow(df[df[g] == as.character(groups[i]),] %>% 
+                           filter(recruiter.id %in% (df[df[g] == as.character(groups[j]),]$id)))
+        total <- nrow(df %>% filter(recruiter.id %in% (df[df[g] == as.character(groups[j]),]$id)))
+        probs[i,j] = ifelse(total>0, recruits/total, 0)
       }
     }
-    mc <- new("markovchain",states = sapply(groups, as.character),byrow = F,transitionMatrix = probs,name = "Recruitment Movement")
-    plot(mc, vertex.cex=3)
+    mc <- new("markovchain",states = sapply(groups, as.character),byrow = F,transitionMatrix = probs,
+              name = "Recruitment Movement")
+    g <- as(mc,"igraph")
+    output$visual <- renderPlot(plot(g, rescale=TRUE, edge.label=E(g)$prob, edge.curved=0.3, vertex.size=75, 
+         vertex.color="red", vertex.label.color="black"))
   })
 }
 
@@ -291,31 +323,24 @@ shinyApp(ui, server)
 ```
 
 ```{r}
-faux[,'X']
-```
-
-```{r}
-faux
-```
-
-```{r}
-groups <- unique(faux$X)
+df <- data.frame(id=c(1,2,3,4,5,6,7,8,9,10), 
+                     recruiter.id=c(2,-1,2,-1,8,4,1,5,6,7), network.size.variable=c(4,8,8,2,3,4,8,6,4,5), 
+                     age=c("<20","<20","<20","20-40","<20","20-40","40-60","60+","20-40","60+"))
+g <- 'age'
+groups <- unique(df[,g])
 probs <- matrix(, length(groups), length(groups))
 for (i in 1:length(groups)) {
   for (j in 1:length(groups)) {
-    recruits <- nrow(faux[faux$X == groups[i],] %>% filter(recruiter.id %in% (faux[faux$X == groups[j],]$id)))
-    total <- nrow(faux %>% filter(recruiter.id %in% (faux[faux$X == groups[j],]$id)))
-    probs[i,j] = recruits/total
+    recruits <- nrow(df[df[g] == as.character(groups[i]),] %>% 
+                       filter(recruiter.id %in% (df[df[g] == as.character(groups[j]),]$id)))
+    total <- nrow(df %>% filter(recruiter.id %in% (df[df[g] == as.character(groups[j]),]$id)))
+    probs[i,j] = ifelse(total>0, recruits/total, 0)
   }
 }
-mc <- new("markovchain",states = sapply(groups, as.character),byrow = F,transitionMatrix = probs,name = "Recruitment Movement")
-plot(mc, vertex.cex=3)
-```
-
-```{r}
-faux
-faux[faux$X == "red",] %>% filter(recruiter.id %in% (faux[faux$X == "red",]$id))
-faux[faux$X == "red",] %>% filter(recruiter.id %in% (faux[faux$X == "blue",]$id))
-faux[faux$X == "blue",] %>% filter(recruiter.id %in% (faux[faux$X == "red",]$id))
-faux[faux$X == "blue",] %>% filter(recruiter.id %in% (faux[faux$X == "blue",]$id))
+probs
+mc <- new("markovchain",states = sapply(groups, as.character),byrow = F,transitionMatrix = probs,
+              name = "Recruitment Movement")
+g <- as(mc,"igraph")
+plot(g, rescale=TRUE, edge.label=E(g)$prob, edge.curved=0.3, vertex.size=20, 
+         vertex.color="red", vertex.label.color="black")
 ```
