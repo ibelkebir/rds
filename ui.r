@@ -113,6 +113,20 @@ bootstrapPage(
             width=6,
             plotOutput("plot5")
           )
+        ),
+        
+        h3("Recruitment Monitering Plots"),
+        h5("Plot of the number of recruits at each wave, 
+           as well as the number of recruits for each seed at each wave"),
+        fluidRow(
+          column(
+            width=6,
+            plotOutput("plot6")
+          ),
+          column(
+            width=6,
+            plotOutput("plot7")
+          )
         )
       )
     )

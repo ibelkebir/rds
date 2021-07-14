@@ -3,6 +3,7 @@ library(shiny)
 library(DT)
 library(dplyr)
 library(ggplot2)
+library(reshape2)
 
 function(input, output, session) {
   data(faux)
@@ -40,6 +41,86 @@ function(input, output, session) {
       ggplot(df2, aes(x=recruit, y=seed)) +
         geom_point(color=cols, shape="|", size=5) +
         scale_y_continuous(breaks = seq(1,length(seed_ids)))
+    })
+    
+    waves <- split(df, df$wave)
+    waves <- waves[1:length(waves)-1]
+    avgs1 <- rep(0,length(waves))
+    avgs2 <- rep(0,length(waves))
+    x = 1
+    for (wave in waves) {
+      dfs <- split(wave, wave[[resp]])
+      for (df3 in dfs) {
+        avg = nrow(df[df$recruiter.id %in% df3$id,]) / nrow(df3)
+        if (df3[[resp]][1] == unique(df[[resp]])[1]) {
+          avgs1[x] = avg
+        }else{
+          avgs2[x] = avg
+        }
+      }
+      x = x+1
+    }
+    
+    df3 <- data.frame(x=seq(1,length(waves)))
+    output$plot4 <- renderPlot({
+      ggplot(data=df3, aes(x=x)) +
+        geom_line(aes(y=avgs1, color=toString(unique(df[[resp]])[1]))) +
+        geom_line(aes(y=avgs2, color=toString(unique(df[[resp]])[2]))) +
+        scale_colour_manual("",
+                            breaks = c(toString(unique(df[[resp]])[1]),toString(unique(df[[resp]])[2])),
+                            values = c("red", "blue")) +
+        xlab("Wave") +
+        ylab("Average number of recruits") +
+        scale_x_continuous(breaks = seq(1,length(waves)))
+    })
+    
+    recruits <- rep(0,nrow(df[df$wave != max(df$wave),]))
+    responses <- df[df$wave != max(df$wave),][[resp]]
+    i = 0
+    for (id in df[df$wave != max(df$wave),]$id) {
+      recruits[i] = nrow(df[df$recruiter.id == id,])
+      i = i+1
+    }
+    df4 <- data.frame(recs=recruits, response=sapply(responses,toString))
+    output$plot5 <- renderPlot ({
+      ggplot(df4, aes(x=recs, fill=response)) +
+        geom_histogram(position="dodge", binwidth=1) +
+        xlab("# of recruits")
+    })
+    
+    waves <- split(df, df$wave)
+    c <- sapply(waves,nrow)
+    df5 <- data.frame(x=seq(0,length(waves)-1), y=c)
+    output$plot6 <- renderPlot({
+      ggplot(df5, aes(x=x,y=y)) +
+        geom_line(aes(color="red")) +
+        scale_x_continuous(breaks = seq(0,length(waves)-1)) +
+        xlab("wave") +
+        ylab("# of recruits") +
+        theme(legend.position="none")
+    })
+    
+    M <- matrix(, nrow(df[df$recruiter.id == "seed",]), length(split(df, df$wave)))
+    i = 1
+    for (seed in split(df,df$seed)) {
+      j = 1
+      for (wave in split(seed, seed$wave)) {
+        M[i,j] = nrow(wave)
+        j = j + 1
+      }
+      i = i + 1
+    }
+    M[is.na(M)] <- 0
+    M <- data.frame(t(M))
+    colnames(M) <- seq(1, nrow(df[df$recruiter.id == "seed",]))
+    M$wave <- seq(0,length(split(df, df$wave))-1)
+    
+    output$plot7 <- renderPlot({
+      ggplot(melt(M, id.vars="wave"), aes(x=wave, y=value, color=variable)) +
+        geom_line() +
+        xlab("wave") +
+        ylab("# of recruits") +
+        guides(color=guide_legend("seed"))
     })
     
     output$error <- NULL
@@ -89,10 +170,69 @@ function(input, output, session) {
         output$legend <- renderText("Red: X = red, Blue: X = blue")
         output$plot3 <- renderPlot({ 
           ggplot(df, aes(x=recruit, y=seed)) + 
-          geom_point(color=cols, shape="|", size=5) + 
-          scale_y_continuous(breaks = seq(1,length(seed_ids)))
+            geom_point(color=cols, shape="|", size=5) + 
+            scale_y_continuous(breaks = seq(1,length(seed_ids)))
         })
         
+        waves <- split(faux, faux$wave)
+        waves <- waves[1:length(waves)-1]
+        avgs1 <- rep(0,length(waves))
+        avgs2 <- rep(0,length(waves))
+        x = 1
+        for (wave in waves) {
+          y = 0
+          dfs <- split(wave, wave$X)
+          for (df2 in dfs) {
+            avg = nrow(faux[faux$recruiter.id %in% df2$id,]) / nrow(df2)
+            if (y %% 2 == 0) {
+              avgs1[x] = avg
+            }else{
+              avgs2[x] = avg
+            }
+            y = y+1
+          }
+          x = x+1
+        }
+        df2 <- data.frame(x=seq(1,length(waves)))
+        output$plot4 <- renderPlot({
+          ggplot(data=df2, aes(x=x)) +
+            geom_line(aes(y=avgs1, color="blue")) +
+            geom_line(aes(y=avgs2, color="red")) +
+            scale_colour_manual("",
+                                breaks = c("red","blue"),
+                                values = c("red", "blue")) +
+            xlab("Wave") +
+            ylab("Average number of recruits") +
+            scale_x_continuous(breaks = seq(1,length(waves)))
+        })
+        
+        recruits <- rep(0,nrow(faux[faux$wave != max(faux$wave),]))
+        responses <- faux[faux$wave != max(faux$wave),]$X
+        i = 0
+        for (id in faux[faux$wave != max(faux$wave),]$id) {
+          recruits[i] = nrow(faux[faux$recruiter.id == id,])
+          i = i+1
+        }
+        df3 <- data.frame(recs=recruits, response=responses)
+        output$plot5 <- renderPlot ({
+          ggplot(df3, aes(x=recs, fill=response)) +
+            geom_histogram(position="dodge", binwidth=1) +
+            xlab("# of recruits")
+        })
+        
+        waves <- split(faux, faux$wave)
+        c <- sapply(waves,nrow)
+        df4 <- data.frame(x=seq(0,length(waves)-1), y=c)
+        output$plot6 <- renderPlot({
+          ggplot(df4, aes(x=x,y=y)) +
+            geom_line(aes(color="red")) +
+            scale_x_continuous(breaks = seq(0,length(waves)-1)) +
+            xlab("wave") +
+            ylab("# of recruits") +
+            theme(legend.position="none")
+        })
+        
+        output$plot7 <- NULL
       },
       "fm" = function() {
         output$error <- NULL
@@ -115,6 +255,86 @@ function(input, output, session) {
           scale_y_continuous(breaks = seq(1,length(seed_ids)))
         })
         
+        waves <- split(fauxmadrona, fauxmadrona$wave)
+        waves <- waves[1:length(waves)-1]
+        avgs1 <- rep(0,length(waves))
+        avgs2 <- rep(0,length(waves))
+        x = 1
+        for (wave in waves) {
+          y = 0
+          dfs <- split(wave, wave$disease)
+          for (df2 in dfs) {
+            avg = nrow(fauxmadrona[fauxmadrona$recruiter.id %in% df2$id,]) / nrow(df2)
+            if (y %% 2 == 0) {
+              avgs1[x] = avg
+            }else{
+              avgs2[x] = avg
+            }
+            y = y+1
+          }
+          x = x+1
+        }
+        df2 <- data.frame(x=seq(1,length(waves)))
+        output$plot4 <- renderPlot({
+          ggplot(data=df2, aes(x=x)) +
+          geom_line(aes(y=avgs1, color="positive")) +
+          geom_line(aes(y=avgs2, color="negative")) +
+          scale_colour_manual("",
+                              breaks = c("positive","negative"),
+                              values = c("red", "blue")) +
+          xlab("Wave") +
+          ylab("Average number of recruits") +
+          scale_x_continuous(breaks = seq(1,length(waves)))
+        })
+        
+        recruits <- rep(0,nrow(fauxmadrona[fauxmadrona$wave != max(fauxmadrona$wave),]))
+        responses <- fauxmadrona[fauxmadrona$wave != max(fauxmadrona$wave),]$disease
+        i = 0
+        for (id in fauxmadrona[fauxmadrona$wave != max(fauxmadrona$wave),]$id) {
+          recruits[i] = nrow(fauxmadrona[fauxmadrona$recruiter.id == id,])
+          i = i+1
+        }
+        df3 <- data.frame(recs=recruits, response=sapply(responses,toString))
+        output$plot5 <- renderPlot ({
+          ggplot(df3, aes(x=recs, fill=response)) +
+            geom_histogram(position="dodge", binwidth=1) +
+            xlab("# of recruits")
+        })
+        
+        waves <- split(fauxmadrona, fauxmadrona$wave)
+        c <- sapply(waves,nrow)
+        df4 <- data.frame(x=seq(0,length(waves)-1), y=c)
+        output$plot6 <- renderPlot({
+          ggplot(df4, aes(x=x,y=y)) +
+            geom_line(aes(color="red")) +
+            scale_x_continuous(breaks = seq(0,length(waves)-1)) +
+            xlab("wave") +
+            ylab("# of recruits") +
+            theme(legend.position="none")
+        })
+        
+        M <- matrix(, nrow(fauxmadrona[fauxmadrona$recruiter.id == "seed",]), length(split(fauxmadrona, fauxmadrona$wave)))
+        i = 1
+        for (seed in split(fauxmadrona,fauxmadrona$seed)) {
+          j = 1
+          for (wave in split(seed, seed$wave)) {
+            M[i,j] = nrow(wave)
+            j = j + 1
+          }
+          i = i + 1
+        }
+        M[is.na(M)] <- 0
+        M <- data.frame(t(M))
+        colnames(M) <- seq(1, nrow(fauxmadrona[fauxmadrona$recruiter.id == "seed",]))
+        M$wave <- seq(0,length(split(fauxmadrona, fauxmadrona$wave))-1)
+        
+        output$plot7 <- renderPlot({
+          ggplot(melt(M, id.vars="wave"), aes(x=wave, y=value, color=variable)) +
+            geom_line() +
+            xlab("wave") +
+            ylab("# of recruits") +
+            guides(color=guide_legend("seed"))
+        })
       },
       "fc" = function() {
         output$error <- NULL
@@ -137,6 +357,86 @@ function(input, output, session) {
             scale_y_continuous(breaks = seq(1,length(seed_ids)))
         })
         
+        waves <- split(fauxsycamore, fauxsycamore$wave)
+        waves <- waves[1:length(waves)-1]
+        avgs1 <- rep(0,length(waves))
+        avgs2 <- rep(0,length(waves))
+        x = 1
+        for (wave in waves) {
+          y = 0
+          dfs <- split(wave, wave$disease)
+          for (df2 in dfs) {
+            avg = nrow(fauxsycamore[fauxsycamore$recruiter.id %in% df2$id,]) / nrow(df2)
+            if (y %% 2 == 0) {
+              avgs1[x] = avg
+            }else{
+              avgs2[x] = avg
+            }
+            y = y+1
+          }
+          x = x+1
+        }
+        df2 <- data.frame(x=seq(1,length(waves)))
+        output$plot4 <- renderPlot({
+          ggplot(data=df2, aes(x=x)) +
+            geom_line(aes(y=avgs1, color="positive")) +
+            geom_line(aes(y=avgs2, color="negative")) +
+            scale_colour_manual("",
+                                breaks = c("positive","negative"),
+                                values = c("red", "blue")) +
+            xlab("Wave") +
+            ylab("Average number of recruits") +
+            scale_x_continuous(breaks = seq(1,length(waves)))
+        })
+        
+        recruits <- rep(0,nrow(fauxsycamore[fauxsycamore$wave != max(fauxsycamore$wave),]))
+        responses <- fauxsycamore[fauxsycamore$wave != max(fauxsycamore$wave),]$disease
+        i = 0
+        for (id in fauxsycamore[fauxsycamore$wave != max(fauxsycamore$wave),]$id) {
+          recruits[i] = nrow(fauxsycamore[fauxsycamore$recruiter.id == id,])
+          i = i+1
+        }
+        df3 <- data.frame(recs=recruits, response=sapply(responses,toString))
+        output$plot5 <- renderPlot ({
+          ggplot(df3, aes(x=recs, fill=response)) +
+            geom_histogram(position="dodge", binwidth=1) +
+            xlab("# of recruits")
+        })
+        
+        waves <- split(fauxsycamore, fauxsycamore$wave)
+        c <- sapply(waves,nrow)
+        df4 <- data.frame(x=seq(0,length(waves)-1), y=c)
+        output$plot6 <- renderPlot({
+          ggplot(df4, aes(x=x,y=y)) +
+            geom_line(aes(color="red")) +
+            scale_x_continuous(breaks = seq(0,length(waves)-1)) +
+            xlab("wave") +
+            ylab("# of recruits") +
+            theme(legend.position="none")
+        })
+        
+        M <- matrix(, nrow(fauxsycamore[fauxsycamore$recruiter.id == "seed",]), length(split(fauxsycamore, fauxsycamore$wave)))
+        i = 1
+        for (seed in split(fauxsycamore,fauxsycamore$seed)) {
+          j = 1
+          for (wave in split(seed, seed$wave)) {
+            M[i,j] = nrow(wave)
+            j = j + 1
+          }
+          i = i + 1
+        }
+        M[is.na(M)] <- 0
+        M <- data.frame(t(M))
+        colnames(M) <- seq(1, nrow(fauxsycamore[fauxsycamore$recruiter.id == "seed",]))
+        M$wave <- seq(0,length(split(fauxsycamore, fauxsycamore$wave))-1)
+        
+        output$plot7 <- renderPlot({
+          ggplot(melt(M, id.vars="wave"), aes(x=wave, y=value, color=variable)) +
+            geom_line() +
+            xlab("wave") +
+            ylab("# of recruits") +
+            guides(color=guide_legend("seed"))
+        })
       },
       "cust" = function() {
         output$rds1 <- NULL
@@ -145,6 +445,7 @@ function(input, output, session) {
         output$plot1 <- NULL
         output$plot2 <- NULL
         output$plot3 <- NULL
+        output$plot4 <- NULL
         
         trySummary()
       }
