@@ -29,7 +29,7 @@ bootstrapPage(
             actionButton("submit", "Submit"),
             br(),
             textOutput("text1"),
-            numericInput("estN", "Estimated Population Size", 10, min=1),
+            numericInput("estN", "Estimated Population Size", NULL, min=1),
             actionButton("submit2", "Submit"),
             br(),
             textOutput("text2")
@@ -44,7 +44,7 @@ bootstrapPage(
               tags$li("id"),
               tags$li('recruiter.id (for seeds, this value must be "seed")'),
               tags$li("network.size.variable"),
-              tags$li("seed"),
+              tags$li("seed (id of the seed the individual was recruited from)"),
               tags$li("wave"),
               tags$li("at least one binary response variable")
             ),
@@ -95,6 +95,9 @@ bootstrapPage(
         h3("All Points Plot"),
         h5("Plot of the value of the response variable for each respondent seperated by seed 
            and ordered by sample order."),
+        p('By default, the sample order is assumed to be the ordering of the data. To order by date, make sure
+          your dataset has a "date" column in day/month/year format and specify below'),
+        radioButtons("ordering", "", c("Default"="d", "By date"="t")),
         tags$b(textOutput("error2"), style="color:red"),
         plotOutput("plot3"),
         

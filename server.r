@@ -15,17 +15,16 @@ function(input, output, session) {
     resp <- response$data
     task1 <- tryCatch({
       df <- as.rds.data.frame(readfile$data)
-      output$rds1 <- DT::renderDataTable({RDS.I.estimates(rds.data=df, 
+      output$rds1 <- DT::renderDataTable({RDS.I.estimates(rds.data=as.rds.data.frame(df),
                                                           outcome.variable=resp)$interval})
-      output$rds2 <- DT::renderDataTable({RDS.II.estimates(rds.data=df, 
+      output$rds2 <- DT::renderDataTable({RDS.II.estimates(rds.data=as.rds.data.frame(df),
                                                            outcome.variable=resp)$interval})
-      output$ss <- DT::renderDataTable({RDS.SS.estimates(rds.data=df, 
+      output$ss <- DT::renderDataTable({RDS.SS.estimates(rds.data=as.rds.data.frame(df),
                                                          outcome.variable=resp, N=N$data)$interval})
-      
-      output$plot1 <- renderPlot({convergence.plot(df, c(resp))})
-      output$plot2 <- renderPlot({bottleneck.plot(df, c(resp))})
+
+      output$plot1 <- renderPlot({convergence.plot(as.rds.data.frame(df), c(resp))})
+      output$plot2 <- renderPlot({bottleneck.plot(as.rds.data.frame(df), c(resp))})
     }, warning = function(war) {
-      output$error <- renderPrint(war)
     }, error = function(err) {
       output$error <- renderPrint(err)
     }, finally = {})
@@ -33,19 +32,22 @@ function(input, output, session) {
     task2 <- tryCatch({
       df <- readfile$data
       seed_ids <- df[df$recruiter.id == "seed",]$id
+      if (input$ordering == "t") {
+        df$date <- lubridate::dmy(df$date)
+        df <- dplyr::arrange(df, date)
+      }
       cols <- sapply(df[[resp]], function(x) ifelse(x==unique(df[[resp]])[1], "blue", "red"))
       df2 <- data.frame(recruit=seq(1,nrow(df)), seed=match(df$seed, seed_ids) - 0.25 + .5 * 
                           (match(df[[resp]], unique(df[[resp]])) - 1))
       output$legend <- renderText({paste("Red: ",resp," = ",unique(df[[resp]])[2],", Blue: ",resp," = ",unique(df[[resp]])[1])})
       output$plot3 <- renderPlot({
         ggplot(df2, aes(x=recruit, y=seed)) +
-          geom_point(color=cols, shape="|", size=5) +
-          scale_y_continuous(breaks = seq(1,length(seed_ids)))
+          geom_point(color=cols, shape="|", size=5 + 10/length(seed_ids)) +
+          scale_y_continuous(breaks = seq(1,length(seed_ids))) +
+          theme(axis.title=element_text(size=16))
       })
     }, warning = function(war) {
-      output$error2 <- renderPrint(war)
     }, error = function(err) {
-      output$error2 <- renderPrint(err)
     }, finally = {})
     
     task3 <- tryCatch({
@@ -81,9 +83,7 @@ function(input, output, session) {
           scale_x_continuous(breaks = seq(1,length(waves)))
       })
     }, warning = function(war) {
-      output$error3 <- renderPrint(war)
     }, error = function(err) {
-      output$error3 <- renderPrint(err)
     }, finally = {})
     
     task4 <- tryCatch({
@@ -102,9 +102,7 @@ function(input, output, session) {
           xlab("# of recruits")
       })
     }, warning = function(war) {
-      output$error4 <- renderPrint(war)
     }, error = function(err) {
-      output$error4 <- renderPrint(err)
     }, finally = {})
     
     task5 <- tryCatch({
@@ -121,9 +119,7 @@ function(input, output, session) {
           theme(legend.position="none")
       })
     }, warning = function(war) {
-      output$error5 <- renderPrint(war)
     }, error = function(err) {
-      output$error5 <- renderPrint(err)
     }, finally = {})
     
     task6 <- tryCatch({
@@ -151,24 +147,20 @@ function(input, output, session) {
           guides(color=guide_legend("seed"))
       })
     }, warning = function(war) {
-      output$error6 <- renderPrint(war)
     }, error = function(err) {
-      output$error6 <- renderPrint(err)
     }, finally = {})
   }
   
   infile <- reactiveValues(data=NULL)
   readfile <- reactiveValues(data=NULL)
   observeEvent(input$file1, {
-    output$fileread <- renderTable({
-      infile$data <- input$file1
-      if (is.null(infile$data)) return()
-      readfile$data <- read.csv(infile$data$datapath, header=input$header)
-      output$fileread <- DT::renderDataTable({
-        head(readfile$data)
-      })
-      if (input$dataset == "cust") trySummary()
+    infile$data <- input$file1
+    if (is.null(infile$data)) return()
+    readfile$data <- read.csv(infile$data$datapath, header=input$header)
+    output$fileread <- DT::renderDataTable({
+      head(readfile$data)
     })
+    if (input$dataset == "cust") trySummary()
   }) 
   
   response <- reactiveValues(data=NULL)
@@ -184,6 +176,32 @@ function(input, output, session) {
     output$text2 <- renderText(paste("Chosen population size estimate: ", N$data))
     if (input$dataset == "cust") trySummary()
   }) 
+  
+  observeEvent(input$ordering, {
+    if (input$dataset == "cust") {
+      resp <- response$data
+      task2 <- tryCatch({
+        df <- readfile$data
+        seed_ids <- df[df$recruiter.id == "seed",]$id
+        if (input$ordering == "t") {
+          df$date <- lubridate::dmy(df$date)
+          df <- dplyr::arrange(df, date)
+        }
+        cols <- sapply(df[[resp]], function(x) ifelse(x==unique(df[[resp]])[1], "blue", "red"))
+        df2 <- data.frame(recruit=seq(1,nrow(df)), seed=match(df$seed, seed_ids) - 0.25 + .5 * 
+                            (match(df[[resp]], unique(df[[resp]])) - 1))
+        output$legend <- renderText({paste("Red: ",resp," = ",unique(df[[resp]])[2],", Blue: ",resp," = ",unique(df[[resp]])[1])})
+        output$plot3 <- renderPlot({
+          ggplot(df2, aes(x=recruit, y=seed)) +
+            geom_point(color=cols, shape="|", size=5 + 10/length(seed_ids)) +
+            scale_y_continuous(breaks = seq(1,length(seed_ids))) +
+            theme(axis.title=element_text(size=16))
+        })
+      }, warning = function(war) {
+      }, error = function(err) {
+      }, finally = {})
+    }
+  })
   
   observeEvent(input$dataset, {
     f <- switch(
@@ -208,8 +226,9 @@ function(input, output, session) {
         output$legend <- renderText("Red: X = red, Blue: X = blue")
         output$plot3 <- renderPlot({ 
           ggplot(df, aes(x=recruit, y=seed)) + 
-            geom_point(color=cols, shape="|", size=5) + 
-            scale_y_continuous(breaks = seq(1,length(seed_ids)))
+            geom_point(color=cols, shape="|", size=5 + 10/length(seed_ids)) + 
+            scale_y_continuous(breaks = seq(1,length(seed_ids))) +
+            theme(axis.title=element_text(size=16))
         })
         
         waves <- split(faux, faux$wave)
@@ -294,8 +313,9 @@ function(input, output, session) {
         output$legend <- renderText("Red: Disease = 1, Blue: Disease = 0")
         output$plot3 <- renderPlot({
           ggplot(df, aes(x=recruit, y=seed)) + 
-          geom_point(color=cols, shape="|", size=5) + 
-          scale_y_continuous(breaks = seq(1,length(seed_ids)))
+          geom_point(color=cols, shape="|", size=5 + 10/length(seed_ids)) + 
+          scale_y_continuous(breaks = seq(1,length(seed_ids))) +
+          theme(axis.title=element_text(size=16))
         })
         
         waves <- split(fauxmadrona, fauxmadrona$wave)
@@ -401,8 +421,9 @@ function(input, output, session) {
         output$legend <- renderText("Red: Disease = 1, Blue: Disease = 0")
         output$plot3 <- renderPlot({
           ggplot(df, aes(x=recruit, y=seed)) + 
-            geom_point(color=cols, shape="|", size=5) + 
-            scale_y_continuous(breaks = seq(1,length(seed_ids)))
+            geom_point(color=cols, shape="|", size=5 + 10/length(seed_ids)) + 
+            scale_y_continuous(breaks = seq(1,length(seed_ids))) +
+            theme(axis.title=element_text(size=16))
         })
         
         waves <- split(fauxsycamore, fauxsycamore$wave)
