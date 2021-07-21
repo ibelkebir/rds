@@ -91,19 +91,18 @@ bootstrapPage(
     tabPanel("Visualizations",
       fluidPage(
         p("This tab shows various plots useful in assesing characteristics of the RDS sampling process"),
-        tags$b(textOutput("error2"), style="color:red"),
         
         h3("All Points Plot"),
         h5("Plot of the value of the response variable for each respondent seperated by seed 
            and ordered by sample order."),
-        h5('By default, the order of the data is assumed to be the sampling order. 
-           You can change this by including a column "date" and specifying to order by date'),
-        radioButtons("ordering", "", c("Default ordering", "Order by date")),
+        tags$b(textOutput("error2"), style="color:red"),
         plotOutput("plot3"),
         
         h3("Recruitment Effectiveness Plots"),
         h5("Plot of the average number of recruits for each value of the response at each wave, as well as a histogram
            of the number of successful recruitings for each value of the response"),
+        tags$b(textOutput("error3"), style="color:red"),
+        tags$b(textOutput("error4"), style="color:red"),
         fluidRow(
           column(
             width=6,
@@ -118,6 +117,8 @@ bootstrapPage(
         h3("Recruitment Monitering Plots"),
         h5("Plot of the number of recruits at each wave, 
            as well as the number of recruits for each seed at each wave"),
+        tags$b(textOutput("error5"), style="color:red"),
+        tags$b(textOutput("error6"), style="color:red"),
         fluidRow(
           column(
             width=6,

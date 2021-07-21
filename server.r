@@ -11,132 +11,165 @@ function(input, output, session) {
   data(fauxsycamore)
   
   trySummary <- function(){
-    if (is.null(readfile$data)) {
-      output$error <-  renderText("No file uploaded")
-      return()
-    }
-    if (is.null(response$data)) {
-      output$error <- renderText("No response variable selected")
-      return()
-    }
     
-    df <- as.rds.data.frame(readfile$data)
     resp <- response$data
-    output$rds1 <- DT::renderDataTable({RDS.I.estimates(rds.data=df, 
-                                                        outcome.variable=resp)$interval})
-    output$rds2 <- DT::renderDataTable({RDS.II.estimates(rds.data=df, 
-                                                         outcome.variable=resp)$interval})
-    output$ss <- DT::renderDataTable({RDS.SS.estimates(rds.data=df, 
-                                                       outcome.variable=resp, N=N$data)$interval})
+    task1 <- tryCatch({
+      df <- as.rds.data.frame(readfile$data)
+      output$rds1 <- DT::renderDataTable({RDS.I.estimates(rds.data=df, 
+                                                          outcome.variable=resp)$interval})
+      output$rds2 <- DT::renderDataTable({RDS.II.estimates(rds.data=df, 
+                                                           outcome.variable=resp)$interval})
+      output$ss <- DT::renderDataTable({RDS.SS.estimates(rds.data=df, 
+                                                         outcome.variable=resp, N=N$data)$interval})
+      
+      output$plot1 <- renderPlot({convergence.plot(df, c(resp))})
+      output$plot2 <- renderPlot({bottleneck.plot(df, c(resp))})
+    }, warning = function(war) {
+      output$error <- renderPrint(war)
+    }, error = function(err) {
+      output$error <- renderPrint(err)
+    }, finally = {})
     
-    output$plot1 <- renderPlot({convergence.plot(df, c(resp))})
-    output$plot2 <- renderPlot({bottleneck.plot(df, c(resp))})
+    task2 <- tryCatch({
+      df <- readfile$data
+      seed_ids <- df[df$recruiter.id == "seed",]$id
+      cols <- sapply(df[[resp]], function(x) ifelse(x==unique(df[[resp]])[1], "blue", "red"))
+      df2 <- data.frame(recruit=seq(1,nrow(df)), seed=match(df$seed, seed_ids) - 0.25 + .5 * 
+                          (match(df[[resp]], unique(df[[resp]])) - 1))
+      output$legend <- renderText({paste("Red: ",resp," = ",unique(df[[resp]])[2],", Blue: ",resp," = ",unique(df[[resp]])[1])})
+      output$plot3 <- renderPlot({
+        ggplot(df2, aes(x=recruit, y=seed)) +
+          geom_point(color=cols, shape="|", size=5) +
+          scale_y_continuous(breaks = seq(1,length(seed_ids)))
+      })
+    }, warning = function(war) {
+      output$error2 <- renderPrint(war)
+    }, error = function(err) {
+      output$error2 <- renderPrint(err)
+    }, finally = {})
     
-    seed_ids <- df[df$recruiter.id == "seed",]$id
-    cols <- sapply(df[[resp]], function(x) ifelse(x==unique(df[[resp]])[1], "blue", "red"))
-    df2 <- data.frame(recruit=seq(1,nrow(df)), seed=match(df$seed, seed_ids) - 0.25 + .5 * 
-                       (match(df[[resp]], unique(df[[resp]])) - 1))
-    output$legend <- renderText({paste("Red: ",resp," = ",unique(df[[resp]])[2],", Blue: ",resp," = ",unique(df[[resp]])[1])})
-    output$plot3 <- renderPlot({
-      ggplot(df2, aes(x=recruit, y=seed)) +
-        geom_point(color=cols, shape="|", size=5) +
-        scale_y_continuous(breaks = seq(1,length(seed_ids)))
-    })
-    
-    waves <- split(df, df$wave)
-    waves <- waves[1:length(waves)-1]
-    avgs1 <- rep(0,length(waves))
-    avgs2 <- rep(0,length(waves))
-    x = 1
-    for (wave in waves) {
-      dfs <- split(wave, wave[[resp]])
-      for (df3 in dfs) {
-        avg = nrow(df[df$recruiter.id %in% df3$id,]) / nrow(df3)
-        if (df3[[resp]][1] == unique(df[[resp]])[1]) {
-          avgs1[x] = avg
-        }else{
-          avgs2[x] = avg
+    task3 <- tryCatch({
+      df <- readfile$data
+      waves <- split(df, df$wave)
+      waves <- waves[1:length(waves)-1]
+      avgs1 <- rep(0,length(waves))
+      avgs2 <- rep(0,length(waves))
+      x = 1
+      for (wave in waves) {
+        dfs <- split(wave, wave[[resp]])
+        for (df3 in dfs) {
+          avg = nrow(df[df$recruiter.id %in% df3$id,]) / nrow(df3)
+          if (df3[[resp]][1] == unique(df[[resp]])[1]) {
+            avgs1[x] = avg
+          }else{
+            avgs2[x] = avg
+          }
         }
+        x = x+1
       }
-      x = x+1
-    }
+      
+      df3 <- data.frame(x=seq(1,length(waves)))
+      output$plot4 <- renderPlot({
+        ggplot(data=df3, aes(x=x)) +
+          geom_line(aes(y=avgs1, color=toString(unique(df[[resp]])[1]))) +
+          geom_line(aes(y=avgs2, color=toString(unique(df[[resp]])[2]))) +
+          scale_colour_manual("",
+                              breaks = c(toString(unique(df[[resp]])[1]),toString(unique(df[[resp]])[2])),
+                              values = c("red", "blue")) +
+          xlab("Wave") +
+          ylab("Average number of recruits") +
+          scale_x_continuous(breaks = seq(1,length(waves)))
+      })
+    }, warning = function(war) {
+      output$error3 <- renderPrint(war)
+    }, error = function(err) {
+      output$error3 <- renderPrint(err)
+    }, finally = {})
     
-    df3 <- data.frame(x=seq(1,length(waves)))
-    output$plot4 <- renderPlot({
-      ggplot(data=df3, aes(x=x)) +
-        geom_line(aes(y=avgs1, color=toString(unique(df[[resp]])[1]))) +
-        geom_line(aes(y=avgs2, color=toString(unique(df[[resp]])[2]))) +
-        scale_colour_manual("",
-                            breaks = c(toString(unique(df[[resp]])[1]),toString(unique(df[[resp]])[2])),
-                            values = c("red", "blue")) +
-        xlab("Wave") +
-        ylab("Average number of recruits") +
-        scale_x_continuous(breaks = seq(1,length(waves)))
-    })
-    
-    recruits <- rep(0,nrow(df[df$wave != max(df$wave),]))
-    responses <- df[df$wave != max(df$wave),][[resp]]
-    i = 0
-    for (id in df[df$wave != max(df$wave),]$id) {
-      recruits[i] = nrow(df[df$recruiter.id == id,])
-      i = i+1
-    }
-    df4 <- data.frame(recs=recruits, response=sapply(responses,toString))
-    output$plot5 <- renderPlot ({
-      ggplot(df4, aes(x=recs, fill=response)) +
-        geom_histogram(position="dodge", binwidth=1) +
-        xlab("# of recruits")
-    })
-    
-    waves <- split(df, df$wave)
-    c <- sapply(waves,nrow)
-    df5 <- data.frame(x=seq(0,length(waves)-1), y=c)
-    output$plot6 <- renderPlot({
-      ggplot(df5, aes(x=x,y=y)) +
-        geom_line(aes(color="red")) +
-        scale_x_continuous(breaks = seq(0,length(waves)-1)) +
-        xlab("wave") +
-        ylab("# of recruits") +
-        theme(legend.position="none")
-    })
-    
-    M <- matrix(, nrow(df[df$recruiter.id == "seed",]), length(split(df, df$wave)))
-    i = 1
-    for (seed in split(df,df$seed)) {
-      j = 1
-      for (wave in split(seed, seed$wave)) {
-        M[i,j] = nrow(wave)
-        j = j + 1
+    task4 <- tryCatch({
+      df <- readfile$data
+      recruits <- rep(0,nrow(df[df$wave != max(df$wave),]))
+      responses <- df[df$wave != max(df$wave),][[resp]]
+      i = 0
+      for (id in df[df$wave != max(df$wave),]$id) {
+        recruits[i] = nrow(df[df$recruiter.id == id,])
+        i = i+1
       }
-      i = i + 1
-    }
-    M[is.na(M)] <- 0
-    M <- data.frame(t(M))
-    colnames(M) <- seq(1, nrow(df[df$recruiter.id == "seed",]))
-    M$wave <- seq(0,length(split(df, df$wave))-1)
+      df4 <- data.frame(recs=recruits, response=sapply(responses,toString))
+      output$plot5 <- renderPlot ({
+        ggplot(df4, aes(x=recs, fill=response)) +
+          geom_histogram(position="dodge", binwidth=1) +
+          xlab("# of recruits")
+      })
+    }, warning = function(war) {
+      output$error4 <- renderPrint(war)
+    }, error = function(err) {
+      output$error4 <- renderPrint(err)
+    }, finally = {})
     
-    output$plot7 <- renderPlot({
-      ggplot(melt(M, id.vars="wave"), aes(x=wave, y=value, color=variable)) +
-        geom_line() +
-        xlab("wave") +
-        ylab("# of recruits") +
-        guides(color=guide_legend("seed"))
-    })
+    task5 <- tryCatch({
+      df <- readfile$data
+      waves <- split(df, df$wave)
+      c <- sapply(waves,nrow)
+      df5 <- data.frame(x=seq(0,length(waves)-1), y=c)
+      output$plot6 <- renderPlot({
+        ggplot(df5, aes(x=x,y=y)) +
+          geom_line(aes(color="red")) +
+          scale_x_continuous(breaks = seq(0,length(waves)-1)) +
+          xlab("wave") +
+          ylab("# of recruits") +
+          theme(legend.position="none")
+      })
+    }, warning = function(war) {
+      output$error5 <- renderPrint(war)
+    }, error = function(err) {
+      output$error5 <- renderPrint(err)
+    }, finally = {})
     
-    output$error <- NULL
+    task6 <- tryCatch({
+      df <- readfile$data
+      M <- matrix(, nrow(df[df$recruiter.id == "seed",]), length(split(df, df$wave)))
+      i = 1
+      for (seed in split(df,df$seed)) {
+        j = 1
+        for (wave in split(seed, seed$wave)) {
+          M[i,j] = nrow(wave)
+          j = j + 1
+        }
+        i = i + 1
+      }
+      M[is.na(M)] <- 0
+      M <- data.frame(t(M))
+      colnames(M) <- seq(1, nrow(df[df$recruiter.id == "seed",]))
+      M$wave <- seq(0,length(split(df, df$wave))-1)
+      
+      output$plot7 <- renderPlot({
+        ggplot(melt(M, id.vars="wave"), aes(x=wave, y=value, color=variable)) +
+          geom_line() +
+          xlab("wave") +
+          ylab("# of recruits") +
+          guides(color=guide_legend("seed"))
+      })
+    }, warning = function(war) {
+      output$error6 <- renderPrint(war)
+    }, error = function(err) {
+      output$error6 <- renderPrint(err)
+    }, finally = {})
   }
   
   infile <- reactiveValues(data=NULL)
   readfile <- reactiveValues(data=NULL)
-  output$fileread <- renderTable({
-    infile$data <- input$file1
-    if (is.null(infile$data)) return()
-    readfile$data <- read.csv(infile$data$datapath, header=input$header)
-    output$fileread <- DT::renderDataTable({
-      head(readfile$data)
+  observeEvent(input$file1, {
+    output$fileread <- renderTable({
+      infile$data <- input$file1
+      if (is.null(infile$data)) return()
+      readfile$data <- read.csv(infile$data$datapath, header=input$header)
+      output$fileread <- DT::renderDataTable({
+        head(readfile$data)
+      })
+      if (input$dataset == "cust") trySummary()
     })
-    if (input$dataset == "cust") trySummary()
-  })
+  }) 
   
   response <- reactiveValues(data=NULL)
   observeEvent(input$submit, {
@@ -157,6 +190,11 @@ function(input, output, session) {
       input$dataset,
       "f" = function() {
         output$error <- NULL
+        output$error2 <- NULL
+        output$error3 <- NULL
+        output$error4 <- NULL
+        output$error5 <- NULL
+        output$error6 <- NULL
         output$rds1 <- DT::renderDataTable({RDS.I.estimates(rds.data=faux, outcome.variable="X")$interval})
         output$rds2 <- DT::renderDataTable({RDS.II.estimates(rds.data=faux, outcome.variable="X")$interval})
         output$ss <- DT::renderDataTable({RDS.SS.estimates(rds.data=faux, outcome.variable="X")$interval})
@@ -236,6 +274,11 @@ function(input, output, session) {
       },
       "fm" = function() {
         output$error <- NULL
+        output$error2 <- NULL
+        output$error3 <- NULL
+        output$error4 <- NULL
+        output$error5 <- NULL
+        output$error6 <- NULL
         output$rds1 <- DT::renderDataTable({RDS.I.estimates(rds.data=fauxmadrona, 
                                                             outcome.variable="disease")$interval})
         output$rds2 <- DT::renderDataTable({RDS.II.estimates(rds.data=fauxmadrona, 
@@ -338,6 +381,11 @@ function(input, output, session) {
       },
       "fc" = function() {
         output$error <- NULL
+        output$error2 <- NULL
+        output$error3 <- NULL
+        output$error4 <- NULL
+        output$error5 <- NULL
+        output$error6 <- NULL
         output$rds1 <- DT::renderDataTable({RDS.I.estimates(rds.data=fauxsycamore, 
                                                             outcome.variable="disease")$interval})
         output$rds2 <- DT::renderDataTable({RDS.II.estimates(rds.data=fauxsycamore, 
@@ -446,6 +494,15 @@ function(input, output, session) {
         output$plot2 <- NULL
         output$plot3 <- NULL
         output$plot4 <- NULL
+        output$plot5 <- NULL
+        output$plot6 <- NULL
+        output$plot7 <- NULL
+        output$error <- NULL
+        output$error2 <- NULL
+        output$error3 <- NULL
+        output$error4 <- NULL
+        output$error5 <- NULL
+        output$error6 <- NULL
         
         trySummary()
       }
