@@ -4,6 +4,8 @@ library(DT)
 library(dplyr)
 library(ggplot2)
 library(reshape2)
+library(visNetwork)
+library(RColorBrewer)
 
 function(input, output, session) {
   data(faux)
@@ -13,6 +15,7 @@ function(input, output, session) {
   trySummary <- function(){
     
     resp <- response$data
+    
     task1 <- tryCatch({
       df <- as.rds.data.frame(readfile$data)
       output$rds1 <- DT::renderDataTable({RDS.I.estimates(rds.data=as.rds.data.frame(df),
@@ -26,7 +29,12 @@ function(input, output, session) {
       output$plot2 <- renderPlot({bottleneck.plot(as.rds.data.frame(df), c(resp))})
     }, warning = function(war) {
     }, error = function(err) {
-      output$error <- renderPrint(err)
+      if (is.null(readfile$data)) {
+        output$error <- renderText("No dataset uploaded")
+        output$error8 <- renderText("No dataset uploaded")
+      } else {
+        output$error <- renderPrint(err)
+      }
     }, finally = {})
     
     task2 <- tryCatch({
@@ -149,6 +157,36 @@ function(input, output, session) {
     }, warning = function(war) {
     }, error = function(err) {
     }, finally = {})
+    
+    task7 <- tryCatch({
+      df <- readfile$data
+      if (is.null(lab_var$data)) {
+        nodes <- data.frame(id=df$id, label=df$id, level=df$wave)
+        edges <- data.frame(from=df[df$recruiter.id != "seed",]$recruiter.id, 
+                            to=df[df$recruiter.id != "seed",]$id)
+        output$plot8 <- renderVisNetwork({
+          visNetwork(nodes, edges) %>%
+            visNodes() %>%
+            visHierarchicalLayout(direction = "UD", levelSeparation = 100)
+        })
+      } else {
+        pal <- brewer.pal(length(unique(df[[trait]])), "Set1")
+        group <- match(df[[trait]], unique(df[[trait]]))
+        nodes <- data.frame(id=df$id, label=df$id, level=df$wave, color=pal[group])
+        edges <- data.frame(from=df[df$recruiter.id != "seed",]$recruiter.id, 
+                            to=df[df$recruiter.id != "seed",]$id)
+        lnodes <- data.frame(label=unique(df[[trait]]), color=pal[1:length(unique(df[[trait]]))])
+        output$plot8 <- renderVisNetwork({
+          visNetwork(nodes, edges) %>%
+            visNodes() %>%
+            visHierarchicalLayout(direction = "UD", levelSeparation = 100) %>%
+            visLegend(main=trait,addNodes=lnodes, useGroups = FALSE)
+        })
+      }
+    }, warning = function(war) {
+    }, error = function(err) {
+      output$error7 <- renderPrint(err)
+    }, finally = {})
   }
   
   infile <- reactiveValues(data=NULL)
@@ -158,7 +196,7 @@ function(input, output, session) {
     if (is.null(infile$data)) return()
     readfile$data <- read.csv(infile$data$datapath, header=input$header)
     output$fileread <- DT::renderDataTable({
-      head(readfile$data)
+      readfile$data
     })
     if (input$dataset == "cust") trySummary()
   }) 
@@ -180,7 +218,7 @@ function(input, output, session) {
   observeEvent(input$ordering, {
     if (input$dataset == "cust") {
       resp <- response$data
-      task2 <- tryCatch({
+      task <- tryCatch({
         df <- readfile$data
         seed_ids <- df[df$recruiter.id == "seed",]$id
         if (input$ordering == "t") {
@@ -199,6 +237,33 @@ function(input, output, session) {
         })
       }, warning = function(war) {
       }, error = function(err) {
+      }, finally = {})
+    }
+  })
+  
+  lab_var <- reactiveValues(data=NULL)
+  observeEvent(input$submit3, {
+    lab_var$data = input$trait
+    output$text3 <- renderText(paste("Chosen trait: ", lab_var$data))
+    if(input$dataset == "cust") {
+      trait <- lab_var$data
+      task <- tryCatch({
+        df <- readfile$data
+        pal <- brewer.pal(length(unique(df[[trait]])), "Set1")
+        group <- match(df[[trait]], unique(df[[trait]]))
+        nodes <- data.frame(id=df$id, label=df$id, level=df$wave, color=pal[group])
+        edges <- data.frame(from=df[df$recruiter.id != "seed",]$recruiter.id, 
+                            to=df[df$recruiter.id != "seed",]$id)
+        lnodes <- data.frame(label=unique(df[[trait]]), color=pal[1:length(unique(df[[trait]]))])
+        output$plot8 <- renderVisNetwork({
+          visNetwork(nodes, edges) %>%
+            visNodes() %>%
+            visHierarchicalLayout(direction = "UD", levelSeparation = 100) %>%
+            visLegend(main=trait,addNodes=lnodes, useGroups = FALSE)
+        })
+      }, warning = function(war) {
+      }, error = function(err) {
+        output$error7 <- renderPrint(err)
       }, finally = {})
     }
   })
@@ -290,6 +355,17 @@ function(input, output, session) {
         })
         
         output$plot7 <- NULL
+        
+        nodes <- data.frame(id=faux$id, label=faux$id, level=faux$wave, color=faux$Y)
+        edges <- data.frame(from=faux[faux$recruiter.id != "seed",]$recruiter.id, 
+                            to=faux[faux$recruiter.id != "seed",]$id)
+        lnodes <- data.frame(label=unique(faux$Y), color=unique(faux$Y))
+        output$plot8 <- renderVisNetwork({
+          visNetwork(nodes, edges) %>%
+            visNodes() %>%
+            visHierarchicalLayout(direction = "UD", levelSeparation = 100) %>%
+            visLegend(main="Y",addNodes=lnodes, useGroups = FALSE)
+        })
       },
       "fm" = function() {
         output$error <- NULL
@@ -397,6 +473,19 @@ function(input, output, session) {
             xlab("wave") +
             ylab("# of recruits") +
             guides(color=guide_legend("seed"))
+        })
+        
+        pal <- brewer.pal(length(unique(fauxmadrona$disease)), "Set1")
+        group <- match(fauxmadrona$disease, unique(fauxmadrona$disease))
+        nodes <- data.frame(id=fauxmadrona$id, label=fauxmadrona$id, level=fauxmadrona$wave, color=pal[group])
+        edges <- data.frame(from=fauxmadrona[fauxmadrona$recruiter.id != "seed",]$recruiter.id, 
+                            to=fauxmadrona[fauxmadrona$recruiter.id != "seed",]$id)
+        lnodes <- data.frame(label=unique(fauxmadrona$disease), color=pal[1:2])
+        output$plot8 <- renderVisNetwork({
+          visNetwork(nodes, edges) %>%
+            visNodes() %>%
+            visHierarchicalLayout(direction = "UD", levelSeparation = 100) %>%
+            visLegend(main="disease",addNodes=lnodes, useGroups = FALSE)
         })
       },
       "fc" = function() {
@@ -506,6 +595,19 @@ function(input, output, session) {
             ylab("# of recruits") +
             guides(color=guide_legend("seed"))
         })
+        
+        pal <- brewer.pal(length(unique(fauxsycamore$disease)), "Set1")
+        group <- match(fauxsycamore$disease, unique(fauxsycamore$disease))
+        nodes <- data.frame(id=fauxsycamore$id, label=fauxsycamore$id, level=fauxsycamore$wave, color=pal[group])
+        edges <- data.frame(from=fauxsycamore[fauxsycamore$recruiter.id != "seed",]$recruiter.id, 
+                            to=fauxsycamore[fauxsycamore$recruiter.id != "seed",]$id)
+        lnodes <- data.frame(label=unique(fauxsycamore$disease), color=pal[1:2])
+        output$plot8 <- renderVisNetwork({
+          visNetwork(nodes, edges) %>%
+            visNodes() %>%
+            visHierarchicalLayout(direction = "UD", levelSeparation = 100) %>%
+            visLegend(main="disease",addNodes=lnodes, useGroups = FALSE)
+        })
       },
       "cust" = function() {
         output$rds1 <- NULL
@@ -518,6 +620,7 @@ function(input, output, session) {
         output$plot5 <- NULL
         output$plot6 <- NULL
         output$plot7 <- NULL
+        output$plot8 <- NULL
         output$error <- NULL
         output$error2 <- NULL
         output$error3 <- NULL

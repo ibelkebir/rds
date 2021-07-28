@@ -1,5 +1,6 @@
 library(shiny)
 library(DT)
+library(visNetwork)
 
 bootstrapPage(
   tags$head(
@@ -91,6 +92,15 @@ bootstrapPage(
     tabPanel("Visualizations",
       fluidPage(
         p("This tab shows various plots useful in assesing characteristics of the RDS sampling process"),
+        tags$b(textOutput("error8"), style="color:red"),
+        h3("Recruitment Tree"),
+        p('An interactive tree showing the recruitment process. You can also select a trait to color the nodes by for custom datasets.'),
+        textInput("trait", label="Trait to label"),
+        actionButton("submit3", "Submit"),
+        br(),
+        textOutput("text3"),
+        tags$b(textOutput("error7"), style="color:red"),
+        visNetworkOutput("plot8"),
         
         h3("All Points Plot"),
         h5("Plot of the value of the response variable for each respondent seperated by seed 
