@@ -29,11 +29,11 @@ bootstrapPage(
             textInput("resp", label="Response Variable"),
             actionButton("submit", "Submit"),
             br(),
-            textOutput("text1"),
+            tags$b(textOutput("text1")),
             numericInput("estN", "Estimated Population Size", NULL, min=1),
             actionButton("submit2", "Submit"),
             br(),
-            textOutput("text2")
+            tags$b(textOutput("text2"))
           ),
           mainPanel(
             HTML('<p>This application is intended to aid in the analysis and understanding of RDS datasets.

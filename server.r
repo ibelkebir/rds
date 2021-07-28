@@ -14,8 +14,23 @@ function(input, output, session) {
   
   trySummary <- function(){
     
-    resp <- response$data
+    if (is.null(response$data)) {
+      output$error <- renderText("No response variable chosen")
+      output$error8 <- renderText("No response variable chosen")
+    }
     
+    if (is.null(readfile$data)) {
+      output$error <- renderText("No dataset uploaded")
+      output$error8 <- renderText("No dataset uploaded")
+    } else if (is.null(response$data)){
+      output$error <- renderText("No response variable chosen")
+      output$error8 <- renderText("No response variable chosen")
+    } else {
+      output$error <- NULL
+      output$error8 <- NULL
+    }
+    
+    resp <- response$data
     task1 <- tryCatch({
       df <- as.rds.data.frame(readfile$data)
       output$rds1 <- DT::renderDataTable({RDS.I.estimates(rds.data=as.rds.data.frame(df),
@@ -29,15 +44,10 @@ function(input, output, session) {
       output$plot2 <- renderPlot({bottleneck.plot(as.rds.data.frame(df), c(resp))})
     }, warning = function(war) {
     }, error = function(err) {
-      if (is.null(readfile$data)) {
-        output$error <- renderText("No dataset uploaded")
-        output$error8 <- renderText("No dataset uploaded")
-      } else {
-        output$error <- renderPrint(err)
-      }
     }, finally = {})
     
     task2 <- tryCatch({
+      output$error2 <- NULL
       df <- readfile$data
       seed_ids <- df[df$recruiter.id == "seed",]$id
       if (input$ordering == "t") {
@@ -56,9 +66,13 @@ function(input, output, session) {
       })
     }, warning = function(war) {
     }, error = function(err) {
+      if (!is.null(readfile$data) && !is.null(response$data)) {
+        output$error2 <- renderPrint(err)
+      }
     }, finally = {})
     
     task3 <- tryCatch({
+      output$error3 <- NULL
       df <- readfile$data
       waves <- split(df, df$wave)
       waves <- waves[1:length(waves)-1]
@@ -92,9 +106,13 @@ function(input, output, session) {
       })
     }, warning = function(war) {
     }, error = function(err) {
+      if (!is.null(readfile$data) && !is.null(response$data)) {
+        output$error3 <- renderPrint(err)
+      }
     }, finally = {})
     
     task4 <- tryCatch({
+      output$error4 <- NULL
       df <- readfile$data
       recruits <- rep(0,nrow(df[df$wave != max(df$wave),]))
       responses <- df[df$wave != max(df$wave),][[resp]]
@@ -111,9 +129,13 @@ function(input, output, session) {
       })
     }, warning = function(war) {
     }, error = function(err) {
+      if (!is.null(readfile$data) && !is.null(response$data)) {
+        output$error4 <- renderPrint(err)
+      }
     }, finally = {})
     
     task5 <- tryCatch({
+      output$error5 <- NULL
       df <- readfile$data
       waves <- split(df, df$wave)
       c <- sapply(waves,nrow)
@@ -128,9 +150,13 @@ function(input, output, session) {
       })
     }, warning = function(war) {
     }, error = function(err) {
+      if (!is.null(readfile$data) && !is.null(response$data)) {
+        output$error5 <- renderPrint(err)
+      }
     }, finally = {})
     
     task6 <- tryCatch({
+      output$error6 <- NULL
       df <- readfile$data
       M <- matrix(, nrow(df[df$recruiter.id == "seed",]), length(split(df, df$wave)))
       i = 1
@@ -156,12 +182,16 @@ function(input, output, session) {
       })
     }, warning = function(war) {
     }, error = function(err) {
+      if (!is.null(readfile$data)) {
+        output$error6 <- renderPrint(err)
+      }
     }, finally = {})
     
     task7 <- tryCatch({
+      output$error7 <- NULL
       df <- readfile$data
       if (is.null(lab_var$data)) {
-        nodes <- data.frame(id=df$id, label=df$id, level=df$wave)
+        nodes <- data.frame(id=df$id, label=df$id, level=df$wave,font.size=rep(30,nrow(df)))
         edges <- data.frame(from=df[df$recruiter.id != "seed",]$recruiter.id, 
                             to=df[df$recruiter.id != "seed",]$id)
         output$plot8 <- renderVisNetwork({
@@ -172,10 +202,10 @@ function(input, output, session) {
       } else {
         pal <- brewer.pal(length(unique(df[[trait]])), "Set1")
         group <- match(df[[trait]], unique(df[[trait]]))
-        nodes <- data.frame(id=df$id, label=df$id, level=df$wave, color=pal[group])
+        nodes <- data.frame(id=df$id, label=df$id, level=df$wave, color=pal[group], font.size=rep(30,nrow(df)))
         edges <- data.frame(from=df[df$recruiter.id != "seed",]$recruiter.id, 
                             to=df[df$recruiter.id != "seed",]$id)
-        lnodes <- data.frame(label=unique(df[[trait]]), color=pal[1:length(unique(df[[trait]]))])
+        lnodes <- data.frame(label=unique(df[[trait]]), color=pal[1:length(unique(df[[trait]]))], shape="dot")
         output$plot8 <- renderVisNetwork({
           visNetwork(nodes, edges) %>%
             visNodes() %>%
@@ -185,7 +215,9 @@ function(input, output, session) {
       }
     }, warning = function(war) {
     }, error = function(err) {
-      output$error7 <- renderPrint(err)
+      if (!is.null(readfile$data)) {
+        output$error7 <- renderPrint(err)
+      }
     }, finally = {})
   }
   
@@ -217,6 +249,7 @@ function(input, output, session) {
   
   observeEvent(input$ordering, {
     if (input$dataset == "cust") {
+      output$error2 <- NULL
       resp <- response$data
       task <- tryCatch({
         df <- readfile$data
@@ -237,6 +270,9 @@ function(input, output, session) {
         })
       }, warning = function(war) {
       }, error = function(err) {
+        if (!is.null(readfile$data)) {
+          output$error2 <- renderPrint(err)
+        }
       }, finally = {})
     }
   })
@@ -245,16 +281,17 @@ function(input, output, session) {
   observeEvent(input$submit3, {
     lab_var$data = input$trait
     output$text3 <- renderText(paste("Chosen trait: ", lab_var$data))
+    output$error7 <- NULL
     if(input$dataset == "cust") {
       trait <- lab_var$data
       task <- tryCatch({
         df <- readfile$data
         pal <- brewer.pal(length(unique(df[[trait]])), "Set1")
         group <- match(df[[trait]], unique(df[[trait]]))
-        nodes <- data.frame(id=df$id, label=df$id, level=df$wave, color=pal[group])
+        nodes <- data.frame(id=df$id, label=df$id, level=df$wave, color=pal[group], font.size=rep(30,nrow(df)))
         edges <- data.frame(from=df[df$recruiter.id != "seed",]$recruiter.id, 
                             to=df[df$recruiter.id != "seed",]$id)
-        lnodes <- data.frame(label=unique(df[[trait]]), color=pal[1:length(unique(df[[trait]]))])
+        lnodes <- data.frame(label=unique(df[[trait]]), color=pal[1:length(unique(df[[trait]]))], shape="dot")
         output$plot8 <- renderVisNetwork({
           visNetwork(nodes, edges) %>%
             visNodes() %>%
@@ -263,7 +300,9 @@ function(input, output, session) {
         })
       }, warning = function(war) {
       }, error = function(err) {
-        output$error7 <- renderPrint(err)
+        if (!is.null(readfile$data)) {
+          output$error7 <- renderPrint(err)
+        }
       }, finally = {})
     }
   })
@@ -278,6 +317,8 @@ function(input, output, session) {
         output$error4 <- NULL
         output$error5 <- NULL
         output$error6 <- NULL
+        output$error7 <- NULL
+        output$error8 <- NULL
         output$rds1 <- DT::renderDataTable({RDS.I.estimates(rds.data=faux, outcome.variable="X")$interval})
         output$rds2 <- DT::renderDataTable({RDS.II.estimates(rds.data=faux, outcome.variable="X")$interval})
         output$ss <- DT::renderDataTable({RDS.SS.estimates(rds.data=faux, outcome.variable="X")$interval})
@@ -356,10 +397,10 @@ function(input, output, session) {
         
         output$plot7 <- NULL
         
-        nodes <- data.frame(id=faux$id, label=faux$id, level=faux$wave, color=faux$Y)
+        nodes <- data.frame(id=faux$id, label=faux$id, level=faux$wave, color=faux$Y, font.size=rep(30,nrow(faux)))
         edges <- data.frame(from=faux[faux$recruiter.id != "seed",]$recruiter.id, 
                             to=faux[faux$recruiter.id != "seed",]$id)
-        lnodes <- data.frame(label=unique(faux$Y), color=unique(faux$Y))
+        lnodes <- data.frame(label=unique(faux$Y), color=unique(faux$Y), shape="dot")
         output$plot8 <- renderVisNetwork({
           visNetwork(nodes, edges) %>%
             visNodes() %>%
@@ -374,6 +415,8 @@ function(input, output, session) {
         output$error4 <- NULL
         output$error5 <- NULL
         output$error6 <- NULL
+        output$error7 <- NULL
+        output$error8 <- NULL
         output$rds1 <- DT::renderDataTable({RDS.I.estimates(rds.data=fauxmadrona, 
                                                             outcome.variable="disease")$interval})
         output$rds2 <- DT::renderDataTable({RDS.II.estimates(rds.data=fauxmadrona, 
@@ -477,10 +520,10 @@ function(input, output, session) {
         
         pal <- brewer.pal(length(unique(fauxmadrona$disease)), "Set1")
         group <- match(fauxmadrona$disease, unique(fauxmadrona$disease))
-        nodes <- data.frame(id=fauxmadrona$id, label=fauxmadrona$id, level=fauxmadrona$wave, color=pal[group])
+        nodes <- data.frame(id=fauxmadrona$id, label=fauxmadrona$id, level=fauxmadrona$wave, color=pal[group], font.size=rep(30,nrow(fauxmadrona)))
         edges <- data.frame(from=fauxmadrona[fauxmadrona$recruiter.id != "seed",]$recruiter.id, 
                             to=fauxmadrona[fauxmadrona$recruiter.id != "seed",]$id)
-        lnodes <- data.frame(label=unique(fauxmadrona$disease), color=pal[1:2])
+        lnodes <- data.frame(label=unique(fauxmadrona$disease), color=pal[1:2], shape="dot")
         output$plot8 <- renderVisNetwork({
           visNetwork(nodes, edges) %>%
             visNodes() %>%
@@ -495,6 +538,8 @@ function(input, output, session) {
         output$error4 <- NULL
         output$error5 <- NULL
         output$error6 <- NULL
+        output$error7 <- NULL
+        output$error8 <- NULL
         output$rds1 <- DT::renderDataTable({RDS.I.estimates(rds.data=fauxsycamore, 
                                                             outcome.variable="disease")$interval})
         output$rds2 <- DT::renderDataTable({RDS.II.estimates(rds.data=fauxsycamore, 
@@ -598,10 +643,10 @@ function(input, output, session) {
         
         pal <- brewer.pal(length(unique(fauxsycamore$disease)), "Set1")
         group <- match(fauxsycamore$disease, unique(fauxsycamore$disease))
-        nodes <- data.frame(id=fauxsycamore$id, label=fauxsycamore$id, level=fauxsycamore$wave, color=pal[group])
+        nodes <- data.frame(id=fauxsycamore$id, label=fauxsycamore$id, level=fauxsycamore$wave, color=pal[group], font.size=rep(30,nrow(fauxsycamore)))
         edges <- data.frame(from=fauxsycamore[fauxsycamore$recruiter.id != "seed",]$recruiter.id, 
                             to=fauxsycamore[fauxsycamore$recruiter.id != "seed",]$id)
-        lnodes <- data.frame(label=unique(fauxsycamore$disease), color=pal[1:2])
+        lnodes <- data.frame(label=unique(fauxsycamore$disease), color=pal[1:2], shape="dot")
         output$plot8 <- renderVisNetwork({
           visNetwork(nodes, edges) %>%
             visNodes() %>%
@@ -627,6 +672,8 @@ function(input, output, session) {
         output$error4 <- NULL
         output$error5 <- NULL
         output$error6 <- NULL
+        output$error7 <- NULL
+        output$error8 <- NULL
         
         trySummary()
       }
