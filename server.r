@@ -226,7 +226,7 @@ function(input, output, session) {
   observeEvent(input$file1, {
     infile$data <- input$file1
     if (is.null(infile$data)) return()
-    readfile$data <- read.csv(infile$data$datapath, header=input$header)
+    readfile$data <- read.csv(infile$data$datapath, header=TRUE)
     output$fileread <- DT::renderDataTable({
       readfile$data
     })

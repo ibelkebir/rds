@@ -51,7 +51,6 @@ bootstrapPage(
             ),
             br(),
             fileInput("file1", "Upload a CSV File", accept=".csv"),
-            checkboxInput("header", "File contains header", TRUE),
             br(),
             DT::dataTableOutput("fileread")
           )
