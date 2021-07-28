@@ -36,7 +36,7 @@ bootstrapPage(
             tags$b(textOutput("text2"))
           ),
           mainPanel(
-            HTML('<p>This application is intended to aid in the analysis and understanding of RDS datasets.
+            HTML('<p>This application is intended to aid in the analysis of RDS datasets.
               To begin, please select one of the sample datasets from the left panel, or upload your own custom dataset.
               More information on these datasets is given in the RDS package documentation <a href="https://cran.r-project.org/web/packages/RDS/RDS.pdf">
               which can be found here.</a></p>'),
