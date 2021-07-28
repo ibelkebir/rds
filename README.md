@@ -13,3 +13,7 @@ To use this application, download or clone this repository and open "app.rmd" in
 * RColorBrewer
 
 If these packages are not already installed, go to *Tools > Install Packages* and install the required packages.
+
+If all the required packages are downloaded, click *Run > Run All* in RStudio and the application will open in a seperate window. You can select *Open in browser* from the top menu in order to open the application in your default browser.
+
+On the landing page of the application, you can select which dataset to analyze from preset datasets and your own custom dataset. When uploading your dataset, make sure you include column headers and that they follow the format described on the landing page.
