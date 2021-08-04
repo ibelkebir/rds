@@ -435,7 +435,6 @@ function(input, output, session) {
   response <- reactiveValues(data=NULL)
   observeEvent(input$response, {
     response$data <- input$response
-    output$text1 <- renderText(paste("Chosen response variable: ", response$data))
     if (input$dataset == "cust") trySummary()
   })
   
