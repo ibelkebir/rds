@@ -4,12 +4,12 @@ library(visNetwork)
 
 bootstrapPage(
   tags$head(
-    tags$title("Home"),
+    tags$title("RDS"),
     tags$meta(charset="utf-8"),
     tags$link(rel="stylesheet", type="text/css", href="https://bootswatch.com/3/yeti/bootstrap.min.css")
   ),
   
-  navbarPage(title=HTML('<a href="./">RDS</a>'), 
+  navbarPage(title=HTML('<a href="./">Home</a>'), 
     tabPanel("Datasets",
       fluidPage(
         titlePanel(
