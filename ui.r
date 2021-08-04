@@ -4,7 +4,7 @@ library(visNetwork)
 
 bootstrapPage(
   tags$head(
-    tags$title("RDS"),
+    tags$title("Home"),
     tags$meta(charset="utf-8"),
     tags$link(rel="stylesheet", type="text/css", href="https://bootswatch.com/3/yeti/bootstrap.min.css")
   ),
@@ -24,12 +24,12 @@ bootstrapPage(
         ),
         sidebarLayout(
           sidebarPanel(
-            radioButtons("dataset", "", c("Faux"="f", "Fauxmadrona"="fm", "Fauxsycamore"="fc", "Custom"="cust")),
-            p("If you are using a custom dataset, please input a response variable and an estimated population size"),
-            textInput("resp", label="Response Variable"),
-            actionButton("submit", "Submit"),
+            radioButtons("dataset", "", c("Fauxmadrona"="fm", "Fauxsycamore"="fc", "Custom"="cust")),
+            p("If you are using a custom dataset, please select a response variable and an estimated population size"),
+            selectInput(inputId = "response", label = "Response variable", choices=NULL),
             br(),
-            tags$b(textOutput("text1")),
+            selectInput(inputId = "trait", label = "Covariate to label (recruitment tree)", choices=NULL),
+            br(),
             numericInput("estN", "Estimated Population Size", NULL, min=1),
             actionButton("submit2", "Submit"),
             br(),
@@ -94,10 +94,6 @@ bootstrapPage(
         tags$b(textOutput("error8"), style="color:red"),
         h3("Recruitment Tree"),
         p('An interactive tree showing the recruitment process. You can also select a trait to color the nodes by for custom datasets.'),
-        textInput("trait", label="Trait to label"),
-        actionButton("submit3", "Submit"),
-        br(),
-        textOutput("text3"),
         tags$b(textOutput("error7"), style="color:red"),
         visNetworkOutput("plot8"),
         
