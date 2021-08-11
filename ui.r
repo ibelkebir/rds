@@ -67,6 +67,8 @@ bootstrapPage(
         ),
         p("This information can be used to asses the prevelance of seed dependency and homophily in the RDS sample"),
         tags$b(textOutput("error"), style="color:red"),
+        br(),
+        tags$b(textOutput("error9"), style="color:red"),
         h3("RDS I Estimate"),
         DT::dataTableOutput("rds1"),
         br(),

@@ -11,9 +11,9 @@ function(input, output, session) {
   data(fauxmadrona)
   data(fauxsycamore)
   
-  fm_1 <- RDS.I.estimates(rds.data=fauxmadrona, outcome.variable="disease")$interval
-  fm_2 <- RDS.II.estimates(rds.data=fauxmadrona, outcome.variable="disease")$interval
-  fm_3 <- RDS.SS.estimates(rds.data=fauxmadrona, outcome.variable="disease")$interval
+  fm_1 <- round(RDS.I.estimates(rds.data=fauxmadrona, outcome.variable="disease")$interval, digits=3)
+  fm_2 <- round(RDS.II.estimates(rds.data=fauxmadrona, outcome.variable="disease")$interval, digits=3)
+  fm_3 <- round(RDS.SS.estimates(rds.data=fauxmadrona, outcome.variable="disease")$interval, digits=3)
   fm_5 <- bottleneck.plot(fauxmadrona, c("disease"))
   
   seed_ids <- fauxmadrona[fauxmadrona$recruiter.id == "seed",]$id
@@ -109,9 +109,9 @@ function(input, output, session) {
             visLegend(main="disease",addNodes=lnodes, useGroups = FALSE)
   
   
-  fc_1 <- RDS.I.estimates(rds.data=fauxsycamore, outcome.variable="disease")$interval
-  fc_2 <- RDS.II.estimates(rds.data=fauxsycamore, outcome.variable="disease")$interval
-  fc_3 <- RDS.SS.estimates(rds.data=fauxsycamore, outcome.variable="disease")$interval
+  fc_1 <- round(RDS.I.estimates(rds.data=fauxsycamore, outcome.variable="disease")$interval, digits=3)
+  fc_2 <- round(RDS.II.estimates(rds.data=fauxsycamore, outcome.variable="disease")$interval, digits=3)
+  fc_3 <- round(RDS.SS.estimates(rds.data=fauxsycamore, outcome.variable="disease")$interval, digits=3)
   fc_5 <- bottleneck.plot(fauxsycamore, c("disease"))
   
   seed_ids <- fauxsycamore[fauxsycamore$recruiter.id == "seed",]$id
@@ -225,20 +225,44 @@ function(input, output, session) {
       output$error8 <- NULL
     }
     
+    task0 <- tryCatch({
+      df <- readfile$data
+      seeds <- rep(0, nrow(df))
+      waves <- rep(0, nrow(df))
+      recs <- df[df$recruiter.id == "seed",]
+      seeds[match(recs$id, df$id)] = recs$id
+      i = 1
+      while (nrow(recs) > 0) {
+        recs <- df[df$recruiter.id %in% recs$id,]
+        if (nrow(recs) > 0) {
+          seeds[match(recs$id, df$id)] = seeds[match(recs$recruiter.id, df$id)]
+          waves[match(recs$id, df$id)] = i
+          i = i + 1
+        }
+      }
+      readfile$data$seed = seeds
+      readfile$data$wave = waves
+    }, warning = function(war) {
+    }, error = function(err) {
+      output$error <- renderPrint(err)
+    }, finally = {})
+    
     resp <- response$data
     task1 <- tryCatch({
       df <- as.rds.data.frame(readfile$data)
-      output$rds1 <- DT::renderDataTable({RDS.I.estimates(rds.data=as.rds.data.frame(df),
-                                                          outcome.variable=resp)$interval})
-      output$rds2 <- DT::renderDataTable({RDS.II.estimates(rds.data=as.rds.data.frame(df),
-                                                           outcome.variable=resp)$interval})
-      output$ss <- DT::renderDataTable({RDS.SS.estimates(rds.data=as.rds.data.frame(df),
-                                                         outcome.variable=resp, N=N$data)$interval})
+      output$rds1 <- DT::renderDataTable({round(RDS.I.estimates(rds.data=as.rds.data.frame(df),
+                                                          outcome.variable=resp)$interval, digits=3)})
+      output$rds2 <- DT::renderDataTable({round(RDS.II.estimates(rds.data=as.rds.data.frame(df),
+                                                           outcome.variable=resp)$interval, digits=3)})
+      output$ss <- DT::renderDataTable({round(RDS.SS.estimates(rds.data=as.rds.data.frame(df),
+                                                         outcome.variable=resp, N=N$data)$interval, digits=3)})
 
       output$plot1 <- renderPlot({convergence.plot(as.rds.data.frame(df), c(resp))})
       output$plot2 <- renderPlot({bottleneck.plot(as.rds.data.frame(df), c(resp))})
     }, warning = function(war) {
+      output$error9 <- renderPrint(war)
     }, error = function(err) {
+      output$error9 <- renderPrint(err)
     }, finally = {})
     
     task2 <- tryCatch({
@@ -385,30 +409,19 @@ function(input, output, session) {
     task7 <- tryCatch({
       output$error7 <- NULL
       df <- readfile$data
-      if (is.null(lab_var$data)) {
-        nodes <- data.frame(id=df$id, label=df$id, level=df$wave,font.size=rep(30,nrow(df)))
-        edges <- data.frame(from=df[df$recruiter.id != "seed",]$recruiter.id, 
-                            to=df[df$recruiter.id != "seed",]$id)
-        output$plot8 <- renderVisNetwork({
-          visNetwork(nodes, edges) %>%
-            visNodes() %>%
-            visHierarchicalLayout(direction = "UD", levelSeparation = 100)
-        })
-      } else {
-        trait <- lab_var$data
-        pal <- brewer.pal(length(unique(df[[trait]])), "Set1")
-        group <- match(df[[trait]], unique(df[[trait]]))
-        nodes <- data.frame(id=df$id, label=df$id, level=df$wave, color=pal[group], font.size=rep(30,nrow(df)))
-        edges <- data.frame(from=df[df$recruiter.id != "seed",]$recruiter.id, 
-                            to=df[df$recruiter.id != "seed",]$id)
-        lnodes <- data.frame(label=unique(df[[trait]]), color=pal[1:length(unique(df[[trait]]))], shape="dot")
-        output$plot8 <- renderVisNetwork({
-          visNetwork(nodes, edges) %>%
-            visNodes() %>%
-            visHierarchicalLayout(direction = "UD", levelSeparation = 100) %>%
-            visLegend(main=trait,addNodes=lnodes, useGroups = FALSE)
-        })
-      }
+      trait <- lab_var$data
+      pal <- brewer.pal(max(3, length(unique(df[[trait]]))), "Set1")
+      group <- match(df[[trait]], unique(df[[trait]]))
+      nodes <- data.frame(id=df$id, label=df$id, level=df$wave, color=pal[group], font.size=rep(30,nrow(df)))
+      edges <- data.frame(from=df[df$recruiter.id != "seed",]$recruiter.id, 
+                          to=df[df$recruiter.id != "seed",]$id)
+      lnodes <- data.frame(label=unique(df[[trait]]), color=pal[1:length(unique(df[[trait]]))], shape="dot")
+      output$plot8 <- renderVisNetwork({
+        visNetwork(nodes, edges) %>%
+          visNodes() %>%
+          visHierarchicalLayout(direction = "UD", levelSeparation = 100) %>%
+          visLegend(main=trait,addNodes=lnodes, useGroups = FALSE)
+      })
     }, warning = function(war) {
     }, error = function(err) {
       if (!is.null(readfile$data)) {
@@ -442,29 +455,7 @@ function(input, output, session) {
   observeEvent(input$trait, {
     lab_var$data <- input$trait
     output$error7 <- NULL
-    if(input$dataset == "cust") {
-      trait <- lab_var$data
-      task <- tryCatch({
-        df <- readfile$data
-        pal <- brewer.pal(length(unique(df[[trait]])), "Set1")
-        group <- match(df[[trait]], unique(df[[trait]]))
-        nodes <- data.frame(id=df$id, label=df$id, level=df$wave, color=pal[group], font.size=rep(30,nrow(df)))
-        edges <- data.frame(from=df[df$recruiter.id != "seed",]$recruiter.id, 
-                            to=df[df$recruiter.id != "seed",]$id)
-        lnodes <- data.frame(label=unique(df[[trait]]), color=pal[1:length(unique(df[[trait]]))], shape="dot")
-        output$plot8 <- renderVisNetwork({
-          visNetwork(nodes, edges) %>%
-            visNodes() %>%
-            visHierarchicalLayout(direction = "UD", levelSeparation = 100) %>%
-            visLegend(main=trait,addNodes=lnodes, useGroups = FALSE)
-        })
-      }, warning = function(war) {
-      }, error = function(err) {
-        if (!is.null(readfile$data)) {
-          output$error7 <- renderPrint(err)
-        }
-      }, finally = {})
-    }
+    if(input$dataset == "cust") trySummary()
   })
   
   N <- reactiveValues(data=NULL)
