@@ -439,9 +439,10 @@ function(input, output, session) {
     output$fileread <- DT::renderDataTable({
       readfile$data
     })
-    remove <- c("id", "recruiter.id", "network.size.variable", "seed", "wave", "date")
+    remove <- c("id", "recruiter.id", "network.size", "seed", "wave", "date")
     updateSelectInput(session=session, inputId="response", choices=colnames(readfile$data)[! colnames(readfile$data) %in% remove])
     updateSelectInput(session=session, inputId="trait", choices=colnames(readfile$data)[! colnames(readfile$data) %in% remove])
+    colnames(readfile$data)[match("network.size", colnames(readfile$data))] = "network.size.variable"
     if (input$dataset == "cust") trySummary()
   }) 
   

@@ -44,9 +44,7 @@ bootstrapPage(
             tags$ul(
               tags$li("id"),
               tags$li('recruiter.id (for seeds, this value must be "seed")'),
-              tags$li("network.size.variable"),
-              tags$li("seed (id of the seed the individual was recruited from)"),
-              tags$li("wave"),
+              tags$li("network.size"),
               tags$li("at least one binary response variable")
             ),
             br(),
