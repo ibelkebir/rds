@@ -47,7 +47,7 @@ function(input, output, session) {
   fm_7 <- ggplot(data=df2, aes(x=x)) +
           geom_line(aes(y=avgs1, color="positive")) +
           geom_line(aes(y=avgs2, color="negative")) +
-          scale_colour_manual("",
+          scale_colour_manual("disease",
                               breaks = c("positive","negative"),
                               values = c("red", "blue")) +
           xlab("Wave") +
@@ -56,7 +56,7 @@ function(input, output, session) {
   
   recruits <- rep(0,nrow(fauxmadrona[fauxmadrona$wave != max(fauxmadrona$wave),]))
   responses <- fauxmadrona[fauxmadrona$wave != max(fauxmadrona$wave),]$disease
-  i = 0
+  i = 1
   for (id in fauxmadrona[fauxmadrona$wave != max(fauxmadrona$wave),]$id) {
     recruits[i] = nrow(fauxmadrona[fauxmadrona$recruiter.id == id,])
     i = i+1
@@ -64,6 +64,7 @@ function(input, output, session) {
   df3 <- data.frame(recs=recruits, response=sapply(responses,toString))
   fm_8 <- ggplot(df3, aes(x=recs, fill=response)) +
           geom_histogram(position="dodge", binwidth=1) +
+          scale_fill_manual("disease", values=c("red","blue"), labels=c("positive", "negative")) +
           xlab("# of recruits")
   
   waves <- split(fauxmadrona, fauxmadrona$wave)
@@ -102,7 +103,7 @@ function(input, output, session) {
   nodes <- data.frame(id=fauxmadrona$id, label=fauxmadrona$id, level=fauxmadrona$wave, color=pal[group], font.size=rep(30,nrow(fauxmadrona)))
   edges <- data.frame(from=fauxmadrona[fauxmadrona$recruiter.id != "seed",]$recruiter.id, 
                       to=fauxmadrona[fauxmadrona$recruiter.id != "seed",]$id)
-  lnodes <- data.frame(label=unique(fauxmadrona$disease), color=pal[1:2], shape="dot")
+  lnodes <- data.frame(label=c("positive","negative"), color=pal[1:2], shape="dot")
   fm_11 <- visNetwork(nodes, edges) %>%
             visNodes() %>%
             visHierarchicalLayout(direction = "UD", levelSeparation = 100) %>%
@@ -155,14 +156,15 @@ function(input, output, session) {
   
   recruits <- rep(0,nrow(fauxsycamore[fauxsycamore$wave != max(fauxsycamore$wave),]))
   responses <- fauxsycamore[fauxsycamore$wave != max(fauxsycamore$wave),]$disease
-  i = 0
+  i = 1
   for (id in fauxsycamore[fauxsycamore$wave != max(fauxsycamore$wave),]$id) {
     recruits[i] = nrow(fauxsycamore[fauxsycamore$recruiter.id == id,])
     i = i+1
   }
   df3 <- data.frame(recs=recruits, response=sapply(responses,toString))
   fc_8 <- ggplot(df3, aes(x=recs, fill=response)) +
-            geom_histogram(position="dodge", binwidth=1) +
+            geom_histogram(position="dodge", binwidth=1)  +
+            scale_fill_manual("disease", values=c("red","blue"), labels=c("positive", "negative")) +
             xlab("# of recruits")
   
   waves <- split(fauxsycamore, fauxsycamore$wave)
@@ -201,7 +203,7 @@ function(input, output, session) {
   nodes <- data.frame(id=fauxsycamore$id, label=fauxsycamore$id, level=fauxsycamore$wave, color=pal[group], font.size=rep(30,nrow(fauxsycamore)))
   edges <- data.frame(from=fauxsycamore[fauxsycamore$recruiter.id != "seed",]$recruiter.id, 
                       to=fauxsycamore[fauxsycamore$recruiter.id != "seed",]$id)
-  lnodes <- data.frame(label=unique(fauxsycamore$disease), color=pal[1:2], shape="dot")
+  lnodes <- data.frame(label=c("positive","negative"), color=pal[1:2], shape="dot")
   fc_11 <- visNetwork(nodes, edges) %>%
             visNodes() %>%
             visHierarchicalLayout(direction = "UD", levelSeparation = 100) %>%
@@ -316,7 +318,7 @@ function(input, output, session) {
         ggplot(data=df3, aes(x=x)) +
           geom_line(aes(y=avgs1, color=toString(unique(df[[resp]])[1]))) +
           geom_line(aes(y=avgs2, color=toString(unique(df[[resp]])[2]))) +
-          scale_colour_manual("",
+          scale_colour_manual(res,
                               breaks = c(toString(unique(df[[resp]])[1]),toString(unique(df[[resp]])[2])),
                               values = c("red", "blue")) +
           xlab("Wave") +
@@ -333,17 +335,17 @@ function(input, output, session) {
     task4 <- tryCatch({
       output$error4 <- NULL
       df <- readfile$data
-      recruits <- rep(0,nrow(df[df$wave != max(df$wave),]))
-      responses <- df[df$wave != max(df$wave),][[resp]]
-      i = 0
-      for (id in df[df$wave != max(df$wave),]$id) {
+      recruits <- rep(0,nrow(df))
+      i = 1
+      for (id in df$id) {
         recruits[i] = nrow(df[df$recruiter.id == id,])
         i = i+1
       }
-      df4 <- data.frame(recs=recruits, response=sapply(responses,toString))
+      df4 <- data.frame(recs=recruits, response=sapply(df[[resp]],toString))
       output$plot5 <- renderPlot ({
         ggplot(df4, aes(x=recs, fill=response)) +
-          geom_histogram(position="dodge", binwidth=1) +
+          geom_histogram(position="dodge", binwidth=1)  +
+          scale_fill_manual(resp, values=c("red","blue")) +
           xlab("# of recruits")
       })
     }, warning = function(war) {
@@ -439,7 +441,7 @@ function(input, output, session) {
     output$fileread <- DT::renderDataTable({
       readfile$data
     })
-    remove <- c("id", "recruiter.id", "network.size", "seed", "wave", "date")
+    remove <- c("id", "recruiter.id", "network.size", "network.size.variable", "seed", "wave", "date")
     updateSelectInput(session=session, inputId="response", choices=colnames(readfile$data)[! colnames(readfile$data) %in% remove])
     updateSelectInput(session=session, inputId="trait", choices=colnames(readfile$data)[! colnames(readfile$data) %in% remove])
     colnames(readfile$data)[match("network.size", colnames(readfile$data))] = "network.size.variable"
