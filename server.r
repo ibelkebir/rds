@@ -25,12 +25,11 @@ function(input, output, session) {
           theme(axis.title=element_text(size=16))
 
   waves <- split(fauxmadrona, fauxmadrona$wave)
-  waves <- waves[1:length(waves)-1]
   avgs1 <- rep(0,length(waves))
   avgs2 <- rep(0,length(waves))
   x = 1
   for (wave in waves) {
-    y = 0
+    y = 1
     dfs <- split(wave, wave$disease)
     for (df2 in dfs) {
       avg = nrow(fauxmadrona[fauxmadrona$recruiter.id %in% df2$id,]) / nrow(df2)
@@ -43,28 +42,27 @@ function(input, output, session) {
     }
     x = x+1
   }
-  df2 <- data.frame(x=seq(1,length(waves)))
-  fm_7 <- ggplot(data=df2, aes(x=x)) +
-          geom_line(aes(y=avgs1, color="positive")) +
-          geom_line(aes(y=avgs2, color="negative")) +
+  df2 <- data.frame(x=seq(0,length(waves)-1), positive=avgs1, negative=avgs2)
+  df3 <- melt(df2, id="x")
+  fm_7 <- ggplot(data=df3, aes(x=x, y=value, color=variable)) +
+          geom_line() +
           scale_colour_manual("disease",
-                              breaks = c("positive","negative"),
-                              values = c("red", "blue")) +
+                              breaks = c("negative","positive"),
+                              values = c("blue", "red")) +
           xlab("Wave") +
           ylab("Average number of recruits") +
           scale_x_continuous(breaks = seq(1,length(waves)))
   
-  recruits <- rep(0,nrow(fauxmadrona[fauxmadrona$wave != max(fauxmadrona$wave),]))
-  responses <- fauxmadrona[fauxmadrona$wave != max(fauxmadrona$wave),]$disease
+  recruits <- rep(0,nrow(fauxmadrona))
   i = 1
-  for (id in fauxmadrona[fauxmadrona$wave != max(fauxmadrona$wave),]$id) {
+  for (id in fauxmadrona$id) {
     recruits[i] = nrow(fauxmadrona[fauxmadrona$recruiter.id == id,])
     i = i+1
   }
-  df3 <- data.frame(recs=recruits, response=sapply(responses,toString))
+  df3 <- data.frame(recs=recruits, response=sapply(fauxmadrona$disease,toString))
   fm_8 <- ggplot(df3, aes(x=recs, fill=response)) +
           geom_histogram(position="dodge", binwidth=1) +
-          scale_fill_manual("disease", values=c("red","blue"), labels=c("positive", "negative")) +
+          scale_fill_manual("disease", values=c("blue","red"), labels=c("negative", "positive")) +
           xlab("# of recruits")
   
   waves <- split(fauxmadrona, fauxmadrona$wave)
@@ -125,7 +123,6 @@ function(input, output, session) {
             theme(axis.title=element_text(size=16))
   
   waves <- split(fauxsycamore, fauxsycamore$wave)
-  waves <- waves[1:length(waves)-1]
   avgs1 <- rep(0,length(waves))
   avgs2 <- rep(0,length(waves))
   x = 1
@@ -143,28 +140,27 @@ function(input, output, session) {
     }
     x = x+1
   }
-  df2 <- data.frame(x=seq(1,length(waves)))
-  fc_7 <- ggplot(data=df2, aes(x=x)) +
-            geom_line(aes(y=avgs1, color="positive")) +
-            geom_line(aes(y=avgs2, color="negative")) +
-            scale_colour_manual("",
-                                breaks = c("positive","negative"),
-                                values = c("red", "blue")) +
-            xlab("Wave") +
-            ylab("Average number of recruits") +
-            scale_x_continuous(breaks = seq(1,length(waves)))
+  df2 <- data.frame(x=seq(0,length(waves)-1), positive=avgs1, negative=avgs2)
+  df3 <- melt(df2, id="x")
+  fc_7 <- ggplot(data=df3, aes(x=x, y=value, color=variable)) +
+          geom_line() +
+          scale_colour_manual("disease",
+                              breaks = c("negative","positive"),
+                              values = c("blue", "red")) +
+          xlab("Wave") +
+          ylab("Average number of recruits") +
+          scale_x_continuous(breaks = seq(1,length(waves)))
   
-  recruits <- rep(0,nrow(fauxsycamore[fauxsycamore$wave != max(fauxsycamore$wave),]))
-  responses <- fauxsycamore[fauxsycamore$wave != max(fauxsycamore$wave),]$disease
+  recruits <- rep(0,nrow(fauxsycamore))
   i = 1
-  for (id in fauxsycamore[fauxsycamore$wave != max(fauxsycamore$wave),]$id) {
+  for (id in fauxsycamore$id) {
     recruits[i] = nrow(fauxsycamore[fauxsycamore$recruiter.id == id,])
     i = i+1
   }
-  df3 <- data.frame(recs=recruits, response=sapply(responses,toString))
+  df3 <- data.frame(recs=recruits, response=sapply(fauxsycamore$disease,toString))
   fc_8 <- ggplot(df3, aes(x=recs, fill=response)) +
             geom_histogram(position="dodge", binwidth=1)  +
-            scale_fill_manual("disease", values=c("red","blue"), labels=c("positive", "negative")) +
+            scale_fill_manual("disease", values=c("blue","red"), labels=c("negative", "positive")) +
             xlab("# of recruits")
   
   waves <- split(fauxsycamore, fauxsycamore$wave)
@@ -296,7 +292,6 @@ function(input, output, session) {
       output$error3 <- NULL
       df <- readfile$data
       waves <- split(df, df$wave)
-      waves <- waves[1:length(waves)-1]
       avgs1 <- rep(0,length(waves))
       avgs2 <- rep(0,length(waves))
       x = 1
@@ -313,12 +308,12 @@ function(input, output, session) {
         x = x+1
       }
       
-      df3 <- data.frame(x=seq(1,length(waves)))
+      df3 <- data.frame(x=seq(0,length(waves)-1))
       output$plot4 <- renderPlot({
         ggplot(data=df3, aes(x=x)) +
           geom_line(aes(y=avgs1, color=toString(unique(df[[resp]])[1]))) +
           geom_line(aes(y=avgs2, color=toString(unique(df[[resp]])[2]))) +
-          scale_colour_manual(res,
+          scale_colour_manual(resp,
                               breaks = c(toString(unique(df[[resp]])[1]),toString(unique(df[[resp]])[2])),
                               values = c("red", "blue")) +
           xlab("Wave") +
